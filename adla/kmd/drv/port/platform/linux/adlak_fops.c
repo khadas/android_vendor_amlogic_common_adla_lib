@@ -376,6 +376,23 @@ static long drv_ioctl(struct file *filp, unsigned int ioctl_code, unsigned long 
             }
 
             break;
+        case ADLAK_IOCTL_WAIT_UNTIL_FINISH:
+
+            AML_LOG_DEBUG("ADLAK_IOCTL_WAIT_UNTIL_FINISH");
+            ret = copy_from_user(&stat_desc, udata, sizeof(struct adlak_get_stat_desc));
+            if (ret) {
+                AML_LOG_ERR("stat desc copy from user failed!");
+                ret = -EFAULT;
+                break;
+            }
+            ret = adlak_wait_until_finished(context, &stat_desc);
+            /* copy buf info/errcode to user for reference */
+            cp_ret = copy_to_user(udata, &stat_desc, sizeof(struct adlak_get_stat_desc));
+            if ((ERR(NONE) == ret) && (ERR(NONE) != cp_ret)) {
+                ret = cp_ret;
+            }
+
+            break;
         default:
             /*not support command*/
             ret = -ENOTTY;
@@ -415,17 +432,19 @@ unsigned int drv_poll(struct file *filp, struct poll_table_struct *wait) {
     if (!context) {
         goto end;
     }
-    // spinlock_bh(&context->context_lock);
-    adlak_os_mutex_lock(&context->context_mutex);
     /*Add to wait queue*/
     poll_wait(filp, (wait_queue_head_t *)context->wait, wait);
     /*check whether the current net_id task is complete*/
+    adlak_os_mutex_lock(&context->context_mutex);
 
     adlak_os_mutex_lock(&pwq->wq_mutex);
     list_for_each_entry(ptask, &pwq->finished_list, head) {
         if (ptask && ptask->net_id == context->net_id) {
             {
-                mask |= POLLIN | POLLRDNORM;
+                mask = POLLPRI;
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+                adlak_dbg_inner_update(context, "poll to umd");
+#endif
                 break;
             }
         }
@@ -443,10 +462,7 @@ static int drv_release(struct inode *inode, struct file *filp) {
     padlak                        = context->padlak;
 
     AML_LOG_DEBUG("%s", __func__);
-    adlak_os_mutex_lock(&padlak->dev_mutex);
-
     ret = adlak_destroy_context(padlak, context);
-    adlak_os_mutex_unlock(&padlak->dev_mutex);
     if (ERR(NONE) != ret) {
         goto err_handle;
     }

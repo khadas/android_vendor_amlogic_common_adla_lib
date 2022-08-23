@@ -56,17 +56,26 @@ int adlak_create_context(void *adlak_device, struct adlak_context **p_context) {
     adlak_os_mutex_init(&context->context_mutex);
 
     adlak_os_mutex_lock(&context->context_mutex);
-    context->padlak      = adlak_device;
-    context->state       = CONTEXT_STATE_INITED;
-    context->invoke_cnt  = 0;
-    context->net_id      = ++padlak->net_id;
+    context->padlak     = adlak_device;
+    context->state      = CONTEXT_STATE_INITED;
+    context->invoke_cnt = 0;
+    ++padlak->net_id;
+    if (padlak->net_id < 0) {
+        padlak->net_id = 0;
+    }
+    context->net_id      = padlak->net_id;
     context->mem_alloced = 0;
     AML_LOG_DEBUG("new context created, net_id[%d]", context->net_id);
     adlak_to_umd_sinal_init(&context->wait);
     /*Add to context queue*/
     INIT_LIST_HEAD(&context->head);
     list_add_tail(&context->head, &padlak->context_list);
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+    adlak_dbg_inner_init(context);
+#endif
     *p_context = context;
+
+    adlak_os_sema_init(&context->ctx_idle, 1, 0);
     adlak_os_mutex_unlock(&context->context_mutex);
 end:
     return ret;
@@ -93,33 +102,50 @@ int adlak_net_dettach_by_id(struct adlak_context *context, int net_id) {
 }
 
 int adlak_destroy_context(struct adlak_device *padlak, struct adlak_context *context) {
-    int ret = ERR(NONE);
-    int net_id;
+    int     ret = ERR(NONE);
+    int32_t net_id;
     AML_LOG_DEBUG("%s", __func__);
     if (!context) {
         AML_LOG_WARN("invalid input context args to be null or invalid operation!");
         ret = -1;
         goto end;
     }
+
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+    adlak_dbg_inner_update(context, "context destroy");
+    adlak_dbg_inner_dump_info(context);
+    adlak_dbg_inner_deinit(context);
+#endif
+
     net_id = context->net_id;
-    ret    = adlak_invoke_del_all(padlak, net_id);
+    adlak_os_mutex_lock(&context->context_mutex);
+    context->state = CONTEXT_STATE_CLOSED;
+    adlak_os_mutex_unlock(&context->context_mutex);
+    ret = adlak_invoke_del_all(padlak, net_id);
     if (0 != ret) {
         AML_LOG_WARN("net [%d] is busy,so destroy delay!", net_id);
-        context->state = CONTEXT_STATE_CLOSED;
-    } else {
+        if (ERR(EINTR) == adlak_os_sema_take_timeout(context->ctx_idle, 3000)) {//TODO the 3000 is temp val
+            AML_LOG_WARN("sema[stat_idle] take timeout!");
+        }
+    }
+    {
         AML_LOG_INFO("net [%d] is idle!", net_id);
         adlak_os_mutex_lock(&context->context_mutex);
         adlak_mem_free_all_context(context);
         adlak_net_dettach_by_id(context, net_id);
 
         adlak_to_umd_sinal_deinit(&context->wait);
+
+        adlak_os_sema_destroy(&context->ctx_idle);
         adlak_os_mutex_unlock(&context->context_mutex);
         adlak_os_mutex_destroy(&context->context_mutex);
 
+        adlak_os_mutex_lock(&padlak->dev_mutex);
         list_del(&context->head); /*del from context list*/
-
         adlak_os_free(context);  // destroy context
         AML_LOG_DEBUG("net_id [%d] destroyed", net_id);
+        adlak_os_mutex_unlock(&padlak->dev_mutex);
+
     }
 
 end:
@@ -137,7 +163,9 @@ struct context_buf *find_buffer_by_desc(struct adlak_context *context, void *pmm
         goto end;
     }
 
-    list_for_each(node, &context->sbuf_list) {
+    list_for_each_prev(node, &context->sbuf_list) {
+        /*Due to the special application scenario, the target can be found faster by looking from
+         * the back to the front*/
         context_buf = list_entry(node, struct context_buf, head);
         if (context_buf) {
             pmm_info_tmp = (struct adlak_mem_handle *)((context_buf->mm_info));

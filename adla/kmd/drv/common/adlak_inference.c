@@ -73,7 +73,6 @@ int adlak_submit_wait(struct adlak_dev_inference *pinference, struct adlak_task 
     return ret;
 }
 void adlak_wq_check_ready_queue(struct adlak_workqueue *pwq) {
-    int                ret;
     struct adlak_task *ptask = NULL;
     bool               found = false;
 
@@ -96,12 +95,15 @@ void adlak_wq_check_ready_queue(struct adlak_workqueue *pwq) {
             if (found) {
                 //**patching and copy to cmq buffer**
                 ptask = list_first_entry(&pwq->ready_list, typeof(struct adlak_task), head);
+#ifdef CONFIG_ADLAK_PRE_PATCH
                 if (ptask) {
-                    ret = adlak_invoke_pattching(ptask);
-                    if (0 != ret) {
+                    if (0 != adlak_invoke_pattching(ptask)) {
                         AML_LOG_INFO("adlak_invoke_pattching Fail!\n");
                     }
                 }
+#else
+// skip patching
+#endif
             }
         } else {
             // skip
@@ -222,7 +224,11 @@ void *adlak_dev_inference_cb(void *args) {
                     pwq->ptask_sch_cur    = ptask_sch_cur;
                     g_adlak_ptask_sch_cur = ptask_sch_cur;
                     device_state          = ADLAK_DEVICE_BUSY;
+#ifdef CONFIG_ADLAK_PRE_PATCH
                     (void)adlak_submit_exec(ptask_sch_cur);
+#else
+                    (void)adlak_submit_patch_and_exec(ptask_sch_cur);
+#endif
                 }
                 adlak_debug_print_device_state(device_state);
             }
@@ -234,11 +240,6 @@ void *adlak_dev_inference_cb(void *args) {
             ret = adlak_queue_update_task_state(padlak, (struct adlak_task *)ptask_sch_pre);
             adlak_os_mutex_unlock(&pwq->wq_mutex);
             if (!ret) {
-                if (CONTEXT_STATE_CLOSED == ptask_sch_pre->context->state) {
-                    adlak_os_mutex_lock(&padlak->dev_mutex);
-                    adlak_destroy_context(padlak, ptask_sch_pre->context);
-                    adlak_os_mutex_unlock(&padlak->dev_mutex);
-                }
                 ptask_sch_pre = NULL;
             }
         }
@@ -249,11 +250,6 @@ void *adlak_dev_inference_cb(void *args) {
                 ret = adlak_queue_update_task_state(padlak, (struct adlak_task *)ptask_sch_cur);
                 adlak_os_mutex_unlock(&pwq->wq_mutex);
                 if (!ret) {
-                    if (CONTEXT_STATE_CLOSED == ptask_sch_cur->context->state) {
-                        adlak_os_mutex_lock(&padlak->dev_mutex);
-                        adlak_destroy_context(padlak, ptask_sch_cur->context);
-                        adlak_os_mutex_unlock(&padlak->dev_mutex);
-                    }
                     ptask_sch_cur         = NULL;
                     pwq->ptask_sch_cur    = ptask_sch_cur;
                     g_adlak_ptask_sch_cur = ptask_sch_cur;

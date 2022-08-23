@@ -279,7 +279,9 @@ int adlak_cmq_buf_init(struct adlak_device *padlak) {
     AML_LOG_INFO("alloc buffer for cmq,size=0x%08x", padlak->cmq_buf_info.total_size);
     buf_req.bytes             = padlak->cmq_buf_info.total_size;
     buf_req.ret_desc.mem_type = ADLAK_ENUM_MEMTYPE_CONTIGUOUS | ADLAK_ENUM_MEMTYPE_INNER;
-    // buf_req.ret_desc.mem_type = buf_req.ret_desc.mem_type | ADLAK_ENUM_MEMTYPE_CACHEABLE;
+    /*In order to avoid constantly sync the cache of cmq, it is recommended that cmq use
+     * uncache buffer*/
+    //  buf_req.ret_desc.mem_type      = buf_req.ret_desc.mem_type | ADLAK_ENUM_MEMTYPE_CACHEABLE;
     buf_req.ret_desc.mem_direction = ADLAK_ENUM_MEM_DIR_WRITE_ONLY;
 
     padlak->cmq_buf_info.cmq_mm_info = adlak_mm_alloc(padlak->mm, &buf_req);

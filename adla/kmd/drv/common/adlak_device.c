@@ -37,6 +37,10 @@
 /************************** Variable Definitions *****************************/
 
 /************************** Function Prototypes ******************************/
+
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+#include "adlak_dbg.c"
+#endif
 /**
  * @brief init device in kernel mode
  *
@@ -132,12 +136,16 @@ int adlak_device_deinit(struct adlak_device *padlak) {
         goto err_lock;
     }
     adlak_platform_resume(padlak);
+    adlak_os_mutex_unlock(&padlak->dev_mutex);
+    adlak_dev_inference_deinit(padlak); /*the inference thread will internally call the dev_mutex*/
+    adlak_os_mutex_lock(&padlak->dev_mutex);
     adlak_hw_deinit(padlak);
     adlak_dpm_deinit(padlak);
     adlak_irq_deinit(padlak);
-    adlak_dev_inference_deinit(padlak);
     adlak_queue_deinit(padlak);
+    adlak_os_mutex_unlock(&padlak->dev_mutex);
     adlak_destroy_all_context(padlak);
+    adlak_os_mutex_lock(&padlak->dev_mutex);
     adlak_mem_deinit(padlak);
     adlak_platform_pm_deinit(padlak);
     adlak_os_mutex_unlock(&padlak->dev_mutex);
@@ -181,7 +189,8 @@ int adlak_irq_proc(struct adlak_device *const padlak) {
     }
 
     if (unlikely(irqstatus->irq_masked == 0)) {
-        AML_LOG_WARN("irq_masked[0x%08X] irq_raw[0x%08X]", irqstatus->irq_raw);
+        AML_LOG_WARN("irq_masked[0x%08X] irq_raw[0x%08X]", irqstatus->irq_masked,
+                     irqstatus->irq_raw);
         return -1;
     }
 

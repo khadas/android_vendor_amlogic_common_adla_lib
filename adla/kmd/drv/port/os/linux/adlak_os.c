@@ -189,8 +189,10 @@ int adlak_os_mutex_lock(adlak_os_mutex_t *mutex) {
     adlak_os_mutex_inner_t *pmutex_inner = (adlak_os_mutex_inner_t *)*mutex;
     PRINT_FUNC_NAME;
     if (pmutex_inner != NULL) {
-        // mutex_lock_interruptible(&pmutex_inner->mutex_hd);
-        mutex_lock(&pmutex_inner->mutex_hd);
+        if (mutex_lock_interruptible(&pmutex_inner->mutex_hd)) {
+            return ERR(EFAULT);
+        }
+        // mutex_lock(&pmutex_inner->mutex_hd);
         return ERR(NONE);
     }
     return ERR(EINVAL);
@@ -349,9 +351,21 @@ typedef struct adlak_os_thread_inner {
     struct task_struct *kthread;
 } adlak_os_thread_inner_t;
 
+static int adlak_sched_priority = MAX_RT_PRIO / 4;
+module_param_named(sched_priority, adlak_sched_priority, int, 0644);
+MODULE_PARM_DESC(sched_priority, "the adlak_sched_priority of kmd thread");
+
+static void signaler_set_rtpriority(adlak_os_thread_t *pthrd) {
+    adlak_os_thread_inner_t *pthread_inner = (adlak_os_thread_inner_t *)pthrd->handle;
+    struct sched_param       param         = {.sched_priority = adlak_sched_priority};
+
+    sched_setscheduler_nocheck(pthread_inner->kthread, SCHED_FIFO, &param);
+}
+
 int adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void *arg) {
     static uint32_t          thread_num    = 0;
     adlak_os_thread_inner_t *pthread_inner = NULL;
+
     PRINT_FUNC_NAME;
     pthread_inner =
         (adlak_os_thread_inner_t *)adlak_os_malloc(sizeof(adlak_os_thread_inner_t), GFP_KERNEL);
@@ -374,6 +388,7 @@ int adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void
         thread_num++;
         return ERR(NONE);
     }
+    signaler_set_rtpriority(pthrd);
     return ERR(NONE);
 }
 

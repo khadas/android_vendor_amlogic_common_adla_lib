@@ -108,7 +108,7 @@ extern "C" {
 
 #define REG_ADLAK_0X120 (0x120) /* read/write,default=0x0 */
 
-#define REG_ADLAK_NUM_MAX (64)
+#define REG_ADLAK_NUM_MAX (65)
 // irq mask
 #define ADLAK_IRQ_MASK_PARSER_STOP_CMD (1 << 0) /* [0]: parser stop for command*/
 #define ADLAK_IRQ_MASK_PARSER_STOP_ERR (1 << 1) /* [1]: parser stop for error*/

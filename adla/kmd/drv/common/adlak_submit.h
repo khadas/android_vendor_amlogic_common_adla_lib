@@ -217,6 +217,8 @@ struct adlak_task {
     u32                             hw_timeout_ms;
 
     struct adlak_profile profilling;
+
+    adlak_os_sema_t invoke_done;
 };
 
 /************************** Function Prototypes ******************************/
@@ -238,7 +240,7 @@ int adlak_uninvoke_request(struct adlak_context *                context,
 int adlak_get_status_request(struct adlak_context *context, struct adlak_get_stat_desc *stat_desc);
 int adlak_profile_config(struct adlak_context *context, struct adlak_profile_cfg_desc *profile_cfg);
 
-int  adlak_invoke_del_all(struct adlak_device *padlak, int net_id);
+int  adlak_invoke_del_all(struct adlak_device *padlak, int32_t net_id);
 int  adlak_clear_sch_list(struct adlak_device *padlak);
 int  adlak_move_ready_to_pendding_list(struct adlak_device *padlak);
 void adlak_queue_schedule_nolock(struct adlak_device *padlak);
@@ -247,7 +249,13 @@ int adlak_invoke_pattching(struct adlak_task *ptask);
 int adlak_queue_update_task_state(struct adlak_device *padlak, struct adlak_task *ptask);
 
 int adlak_queue_schedule_update(struct adlak_device *padlak, struct adlak_task **ptask_sch_cur);
+#ifdef CONFIG_ADLAK_PRE_PATCH
 int adlak_submit_exec(struct adlak_task *ptask);
+#else
+int adlak_submit_patch_and_exec(struct adlak_task *ptask);
+#endif
+int adlak_wait_until_finished(struct adlak_context *context, struct adlak_get_stat_desc *stat_desc);
+
 #if CONFIG_ADLAK_EMU_EN
 u32 adlak_emu_update_rpt(void);
 #endif

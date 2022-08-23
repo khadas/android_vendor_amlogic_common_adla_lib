@@ -98,8 +98,6 @@ void adlak_pm_reset(void *padlak) {
 
 void adlak_pm_config(void *padlak, u32 addr, u32 buf_size, u32 wpt) {
     struct io_region *region = NULL;
-
-    HAL_ADLAK_PM_EN_S d;
     AML_LOG_DEBUG("%s", __func__);
     ASSERT(padlak);
     region = ((struct adlak_device *)padlak)->hw_res.preg;
@@ -521,6 +519,8 @@ static int adlak_hal_set_autoclock(void *data, uint32_t en) {
     } else {
         adlak_write32(region, REG_ADLAK_0X28, 0x3FFF);
         adlak_write32(region, REG_ADLAK_0X120, 0xF1);
+        // adlak_write32(region, REG_ADLAK_0X120, 0xFF);
+        // adlak_write32(region, REG_ADLAK_0X2C, 0x0A08);
     }
     return 0;
 }
@@ -851,7 +851,7 @@ int adlak_hw_init(void *data) {
 
     phw_info->irq_cfg.mask_normal = ADLAK_IRQ_MASK_TIM_STAMP;
 #if ADLAK_DEBUG
-    phw_info->irq_cfg.mask_normal |= ADLAK_IRQ_MASK_LAYER_END;  // debug only
+    // phw_info->irq_cfg.mask_normal |= ADLAK_IRQ_MASK_LAYER_END;  // debug only
 #endif
     phw_info->irq_cfg.mask =
         ((phw_info->irq_cfg.mask_err ^ ADLAK_IRQ_MASK_SW_TIMEOUT) | phw_info->irq_cfg.mask_normal);

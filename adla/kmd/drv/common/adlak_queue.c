@@ -270,7 +270,7 @@ int adlak_debug_invoke_list_dump(struct adlak_device *padlak, uint32_t debug) {
 }
 
 int adlak_test_irq_emu(struct adlak_device *padlak) { return 0; }
-u32 adlak_cmd_get_sw_id(struct adlak_workqueue *pwq) {
+u32 inline adlak_cmd_get_sw_id(struct adlak_workqueue *pwq) {
     u32 id = pwq->id_cur.global_id_sw++;
     id     = PS_CMD_SET_SW_ID | (id & PS_CMD_SW_ID_MASK);
     return id;

@@ -45,6 +45,7 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
+#include <uapi/linux/sched/types.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif

@@ -27,6 +27,9 @@
 #include "adlak_platform_device.h"
 #include "adlak_queue.h"
 
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+#include "adlak_dbg.h"
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -66,7 +69,7 @@ struct adlak_device {
     struct clk *            clk_axi;
     struct clk *            clk_core;
 #endif
-    int                       net_id;
+    int32_t                   net_id;
     adlak_os_mutex_t          dev_mutex;
     adlak_os_spinlock_t       spinlock;
     struct adlak_hardware_res hw_res;

@@ -64,6 +64,7 @@ extern "C" {
 #define ADLAK_IOCTL_DETTACH_EXTERN_BUF _IOW(ADLAK_IOCTL_MAGIC, 13, struct adlak_extern_buf_info)
 #define ADLAK_IOCTL_PRPOFILE_CFG _IOWR(ADLAK_IOCTL_MAGIC, 14, struct adlak_profile_cfg_desc)
 #define ADLAK_IOCTL_QUERYCAPSIZE _IOR(ADLAK_IOCTL_MAGIC, 15, int)
+#define ADLAK_IOCTL_WAIT_UNTIL_FINISH _IOWR(ADLAK_IOCTL_MAGIC, 16, struct adlak_get_stat_desc)
 
 /************************** Function Prototypes ******************************/
 

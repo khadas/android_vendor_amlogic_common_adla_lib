@@ -60,8 +60,13 @@ struct adlak_context {
 #define CONTEXT_STATE_USED (1 << 2)
 #define CONTEXT_STATE_INITED (1 << 1)
 #define CONTEXT_STATE_CLOSED (1 << 0)
-    s32    net_id;
-    size_t mem_alloced;
+    int32_t net_id;
+    size_t  mem_alloced;
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+    struct adlak_dbg_info *dbg_info;
+#endif
+
+    adlak_os_sema_t ctx_idle;
 };
 
 /************************** Function Prototypes ******************************/
