@@ -6,6 +6,11 @@ ifeq ($(PLATFORM_VENDOR),1)
 LOCAL_VENDOR_MODULE  := true
 endif
 
+ifeq ($(TARGET_ARCH), arm64)
+SERVICE_PATH=$(LOCAL_PATH)/service_64
+else
+SERVICE_PATH=$(LOCAL_PATH)/service_32
+endif
 LOCAL_SHARED_LIBRARIES := \
         android.hardware.neuralnetworks@1.0 \
 		android.hardware.neuralnetworks@1.1 \
@@ -32,7 +37,7 @@ LOCAL_SHARED_LIBRARIES := \
 		libc++ \
 		libc
 
-LOCAL_PREBUILT_MODULE_FILE   := $(LOCAL_PATH)/android.hardware.neuralnetworks@1.3-service-aml-driver
+LOCAL_PREBUILT_MODULE_FILE   := $(SERVICE_PATH)/android.hardware.neuralnetworks@1.3-service-aml-driver
 LOCAL_MODULE_CLASS := EXECUTABLES
 #LOCAL_CHECK_ELF_FILES := false
 LOCAL_MODULE      := android.hardware.neuralnetworks@1.3-service-aml-driver
