@@ -362,7 +362,7 @@ static void signaler_set_rtpriority(adlak_os_thread_t *pthrd) {
     sched_setscheduler_nocheck(pthread_inner->kthread, SCHED_FIFO, &param);
 }
 
-int adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void *arg) {
+int adlak_os_thread_create(adlak_os_thread_t *pthrd, int(*func)(void *), void *arg) {
     static uint32_t          thread_num    = 0;
     adlak_os_thread_inner_t *pthread_inner = NULL;
 

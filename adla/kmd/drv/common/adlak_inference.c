@@ -133,7 +133,7 @@ static void adlak_debug_print_device_state(uint32_t device_state) {
 #endif
 }
 
-void *adlak_dev_inference_cb(void *args) {
+int adlak_dev_inference_cb(void *args) {
     int                     ret;
     struct adlak_device *   padlak = args;
     struct adlak_workqueue *pwq    = &padlak->queue;
@@ -276,7 +276,7 @@ void *adlak_dev_inference_cb(void *args) {
         }
     }
     pthrd->thrd_should_stop = 0;
-    return NULL;
+    return 0;
 }
 
 #if defined(CONFIG_ADLAK_EMU_EN) && (CONFIG_ADLAK_EMU_EN == 1)
@@ -329,7 +329,7 @@ int adlak_dev_inference_init(struct adlak_device *padlak) {
     }
 #endif
     ret = adlak_os_thread_create(&pinference->thrd_inference,
-                                 (void *(*)(void *))adlak_dev_inference_cb, (void *)padlak);
+                                 adlak_dev_inference_cb, (void *)padlak);
     if (ret) {
         AML_LOG_ERR("Create inference thread fail!\n");
     }

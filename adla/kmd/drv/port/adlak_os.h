@@ -68,7 +68,7 @@ typedef struct {
     unsigned int thrd_should_stop;
 } adlak_os_thread_t;
 
-int  adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void *arg);
+int  adlak_os_thread_create(adlak_os_thread_t *pthrd, int(*func)(void *), void *arg);
 int  adlak_os_thread_join(adlak_os_thread_t *pthrd);
 int  adlak_os_thread_detach(adlak_os_thread_t *pthrd);
 void adlak_os_thread_yield(void);
