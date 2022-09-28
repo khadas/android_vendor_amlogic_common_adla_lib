@@ -163,7 +163,7 @@ int adlak_dev_inference_cb(void *args) {
 
             if (all_task_num < 1) {
                 AML_LOG_DEBUG("nothing need to do!\n");
-                if (ERR(EINTR) == adlak_os_sema_take_timeout(pwq->wk_update, dpm_period_set)) {
+                if (ERR(EINTR) == adlak_os_sema_take(pwq->wk_update)) {
                     wq_idel_cnt++;
                     //  AML_LOG_WARN("sema_take timeout ! wq_idel_cnt = %d \n", wq_idel_cnt);
                     if (wq_idel_cnt > 10) {
@@ -348,7 +348,7 @@ int adlak_dev_inference_deinit(struct adlak_device *padlak) {
     struct adlak_workqueue *    pwq        = &padlak->queue;
     struct adlak_dev_inference *pinference = &pwq->dev_infrence;
     AML_LOG_DEBUG("%s\n", __func__);
-
+    adlak_os_sema_give(pwq->wk_update);
     ret = adlak_os_thread_detach(&pinference->thrd_inference);
     if (ret) {
         AML_LOG_ERR("Detach inference thread fail!\n");
