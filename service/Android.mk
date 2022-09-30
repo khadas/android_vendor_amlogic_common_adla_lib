@@ -7,9 +7,17 @@ LOCAL_VENDOR_MODULE  := true
 endif
 
 ifeq ($(TARGET_ARCH), arm64)
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -eq 33 && echo OK),OK)
+SERVICE_PATH=$(LOCAL_PATH)/t/service_64
+else
 SERVICE_PATH=$(LOCAL_PATH)/service_64
+endif
+else
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -eq 33 && echo OK),OK)
+SERVICE_PATH=$(LOCAL_PATH)/t/service_32
 else
 SERVICE_PATH=$(LOCAL_PATH)/service_32
+endif
 endif
 LOCAL_SHARED_LIBRARIES := \
         android.hardware.neuralnetworks@1.0 \
@@ -49,9 +57,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
 endif
 
 LOCAL_MODULE_RELATIVE_PATH := hw
-ifeq ($(shell expr $(PLATFORM_SDK_VERSION) "==" 30),1)
 LOCAL_INIT_RC := android.hardware.neuralnetworks@1.3-service-aml-driver.rc
-endif   # 30
 
 
 LOCAL_MODULE_TAGS := optional
