@@ -71,6 +71,7 @@ struct adlak_extern_buf_info {
     __u64                 bytes;      /* bytes of buffer */
     __u32                 buf_type;   /* type of buf handle */
     struct adlak_buf_desc ret_desc;   /* info of buffer successfully import */
+	__u32              mmap_en;    /* the flag of mmap */
     __u32                 errcode;    /* return err number */
 } __packed;
 

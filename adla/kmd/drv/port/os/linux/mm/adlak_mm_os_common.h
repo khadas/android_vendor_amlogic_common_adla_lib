@@ -52,10 +52,10 @@ void adlak_os_free_discontiguous(struct adlak_mem *mm, struct adlak_mem_handle *
 
 void adlak_os_free_contiguous(struct adlak_mem *mm, struct adlak_mem_handle *mm_info);
 
-int adlak_os_attach_ext_mem(struct adlak_mem *mm, struct adlak_mem_handle *mm_info, u64 buf_handle,
-                            u32 buf_type);
+int adlak_os_attach_ext_mem_phys(struct adlak_mem *mm, struct adlak_mem_handle *mm_info,
+                                 uint64_t phys_addr);
 
-void adlak_os_dettach_ext_mem(struct adlak_mem *mm, struct adlak_mem_handle *mm_info);
+void adlak_os_dettach_ext_mem_phys(struct adlak_mem *mm, struct adlak_mem_handle *mm_info);
 
 int adlak_os_mmap(struct adlak_mem *mm, struct adlak_mem_handle *mm_info, void *const vma);
 

@@ -505,11 +505,15 @@ err_alloc_pages:
     return ERR(ENOMEM);
 }
 
-int adlak_os_attach_ext_mem(struct adlak_mem *mm, struct adlak_mem_handle *mm_info, u64 buf_handle,
-                            u32 buf_type) {
+int adlak_os_attach_ext_mem_phys(struct adlak_mem *mm, struct adlak_mem_handle *mm_info,
+                                 uint64_t phys_addr) {
     phys_addr_t *phys_addrs = NULL;
+    void *       cpu_addr   = NULL;
     int          i;
     AML_LOG_DEBUG("%s", __func__);
+    AML_LOG_DEBUG("phys_addr:0x%lX, size:0x%lX", (uintptr_t)phys_addr,
+                  (uintptr_t)mm_info->req.bytes);
+
     mm_info->phys_addrs = NULL;
     phys_addrs =
         (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, GFP_KERNEL);
@@ -517,15 +521,15 @@ int adlak_os_attach_ext_mem(struct adlak_mem *mm, struct adlak_mem_handle *mm_in
         goto err_alloc_phys_addrs;
     }
 
-    mm_info->phys_addr = buf_handle;
+    mm_info->phys_addr = phys_addr;
     for (i = 0; i < mm_info->nr_pages; ++i) {
-        phys_addrs[i] = buf_handle + (i * PAGE_SIZE);  // get physical addr
+        phys_addrs[i] = phys_addr + (i * PAGE_SIZE);  // get physical addr
         AML_LOG_DEBUG("phys_addrs[%d]=0x%llx", i, (u64)(uintptr_t)phys_addrs[i]);
     }
 
     mm_info->pages      = NULL;
     mm_info->phys_addrs = phys_addrs;
-    mm_info->cpu_addr   = NULL;
+    mm_info->cpu_addr   = cpu_addr;
     mm_info->dma_addr   = (dma_addr_t)NULL;
 
     return ERR(NONE);
@@ -534,7 +538,7 @@ err_alloc_phys_addrs:
     return ERR(ENOMEM);
 }
 
-void adlak_os_dettach_ext_mem(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) {
+void adlak_os_dettach_ext_mem_phys(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) {
     AML_LOG_DEBUG("%s", __func__);
     if (mm_info->phys_addrs) {
         adlak_os_free(mm_info->phys_addrs);
@@ -574,6 +578,12 @@ int adlak_os_mmap(struct adlak_mem *mm, struct adlak_mem_handle *mm_info, void *
 
     } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_CMA) {
         dma_mmap_coherent(mm->dev, vma, mm_info->cpu_addr, mm_info->dma_addr, mm_info->req.bytes);
+    } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_EXT_PHYS) {
+        vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);  // mmap as nocacheable
+        remap_pfn_range(vma, vma->vm_start, page_to_pfn(phys_to_page(mm_info->phys_addr)),
+                        vma->vm_end - vma->vm_start, vma->vm_page_prot);
+        AML_LOG_DEBUG("%s ext phys buffer,  phys_addr = 0x%lX", __func__,
+                      (uintptr_t)mm_info->phys_addr);
     }
 
     return 0;

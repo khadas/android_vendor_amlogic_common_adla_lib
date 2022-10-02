@@ -138,6 +138,8 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
     if (0 == pbuf_req->buf_type)  // physical addr type
     {
         AML_LOG_DEBUG("this extern memory type is physical.");
+
+        mm_info = adlak_mm_attach(padlak->mm, pbuf_req);
     } else if (1 == pbuf_req->buf_type)  //  dma handle addr type
     {
         //  AML_LOG_DEBUG("this extern memory type is dma handle.");
@@ -151,14 +153,27 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
         goto err;
     }
 
-    mm_info = adlak_mm_attach(padlak->mm, pbuf_req);
+
     if (IS_ERR_OR_NULL(mm_info)) {
         ret = -1;
         AML_LOG_ERR("adlak_dma_alloc_and_map failed.");
         goto err;
     }
-    mm_info->cpu_addr_user = NULL;
-    AML_LOG_DEBUG("\ncpu_addr=0x%lX, ", (uintptr_t)mm_info->cpu_addr);
+    mm_info->cpu_addr_user   = NULL;
+    pbuf_req->ret_desc.bytes = mm_info->req.bytes;
+
+    pbuf_req->ret_desc.va_kernel = (uint64_t)(uintptr_t)mm_info->cpu_addr;
+    pbuf_req->ret_desc.va_user   = (uint64_t)(uintptr_t)mm_info->cpu_addr_user;
+    pbuf_req->ret_desc.iova_addr = (uint64_t)(uintptr_t)mm_info->iova_addr;
+
+    if (pbuf_req->mmap_en) {
+        ret = adlak_os_mmap2userspace(padlak->mm, mm_info);
+        if (ret) {
+            AML_LOG_ERR("adlak_dma_mmap2userspace failed.");
+            goto err_mmap;
+        }
+    }
+    AML_LOG_DEBUG("cpu_addr=0x%lX, ", (uintptr_t)mm_info->cpu_addr);
     AML_LOG_DEBUG("cpu_addr_user=0x%lX, ", (uintptr_t)mm_info->cpu_addr_user);
     AML_LOG_DEBUG("iova_addr=0x%lX, ", (uintptr_t)mm_info->iova_addr);
     AML_LOG_DEBUG("size=%lu Kbytes\n", (uintptr_t)(mm_info->req.bytes / 1024));
@@ -167,6 +182,7 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
     pbuf_req->ret_desc.va_kernel = (u64)(uintptr_t)mm_info->cpu_addr;
     pbuf_req->ret_desc.va_user   = (u64)(uintptr_t)mm_info->cpu_addr_user;
     pbuf_req->ret_desc.iova_addr = (u64)(uintptr_t)mm_info->iova_addr;
+    pbuf_req->ret_desc.phys_addr = (u64)(uintptr_t)mm_info->phys_addr;
 
     pbuf_req->errcode = 0;
 
@@ -177,6 +193,8 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
         }
     }
     return 0;
+err_mmap:
+    adlak_mm_dettach(padlak->mm, mm_info);
 err:
     return ret;
 }
@@ -198,6 +216,9 @@ int adlak_ext_mem_dettach_request(struct adlak_context *        context,
     }
     AML_LOG_DEFAULT("iova_addr=0x%lX, ", (uintptr_t)mm_info.iova_addr);
     AML_LOG_DEFAULT("size=%lu KByte \n", (uintptr_t)(pmm_info_hd->req.bytes / 1024));
+    if (pmm_info_hd->cpu_addr_user) {
+        adlak_os_unmmap_userspace(padlak->mm, pmm_info_hd);
+    }
 
     adlak_mm_dettach(padlak->mm, pmm_info_hd);
     return 0;

@@ -317,6 +317,8 @@ int adlak_flush_cache(struct adlak_device *padlak, struct adlak_mem_handle *mm_i
         // TODO
     } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_CMA) {
         // nothing need to do.
+    } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_EXT_PHYS) {
+        // nothing need to do.
     }
     return 0;
 }
@@ -339,6 +341,8 @@ int adlak_invalid_cache(struct adlak_device *padlak, struct adlak_mem_handle *mm
     } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_MBP) {
         // TODO
     } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_CMA) {
+        // nothing need to do.
+    } else if (mm_info->mem_src == ADLAK_ENUM_MEMSRC_EXT_PHYS) {
         // nothing need to do.
     }
     return 0;
@@ -625,6 +629,7 @@ struct adlak_mem_handle *adlak_mm_attach(struct adlak_mem *            mm,
                                          struct adlak_extern_buf_info *pbuf_req) {
     int                      ret;
     struct adlak_mem_handle *mm_info = NULL;
+    uint64_t                 phys_addr = pbuf_req->buf_handle;
     size_t                   size    = pbuf_req->bytes;
     if (!size || !PAGE_ALIGNED(size)) {
         goto early_exit;
@@ -640,7 +645,9 @@ struct adlak_mem_handle *adlak_mm_attach(struct adlak_mem *            mm,
 
     mm_info->nr_pages = DIV_ROUND_UP(mm_info->req.bytes, PAGE_SIZE);
     mm_info->cpu_addr = NULL;
-    ret = adlak_os_attach_ext_mem(mm, mm_info, pbuf_req->buf_handle, pbuf_req->buf_type);
+
+    mm_info->mem_src = ADLAK_ENUM_MEMSRC_EXT_PHYS;
+    ret              = adlak_os_attach_ext_mem_phys(mm, mm_info, phys_addr);
 
     if (!ret) {
         pbuf_req->errcode = 0;
