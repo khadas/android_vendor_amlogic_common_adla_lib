@@ -48,3 +48,10 @@ cc_prebuilt_library_shared {
             none:true,
    },
 }
+
+cc_library_headers {
+    name: "adla_libnnsdk_headers",
+    vendor: true,
+    export_include_dirs: ["include"],
+}
+
