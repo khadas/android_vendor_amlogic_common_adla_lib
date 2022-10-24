@@ -261,9 +261,45 @@ err_alloc_data:
     return ret;
 }
 
+static int adlak_platform_sys_suspend(struct platform_device *pdev,pm_message_t state) {
+    int                  ret    = 0;
+    struct adlak_device *padlak = platform_get_drvdata(pdev);
+    AML_LOG_DEBUG("%s", __func__);
+    adlak_platform_suspend(padlak);
+    /* success */
+    AML_LOG_INFO("ADLA KMD suspend done");
+    return 0;
+}
+
+static int adlak_platform_sys_resume(struct platform_device *pdev) {
+    int                  ret    = 0;
+    struct adlak_device *padlak = platform_get_drvdata(pdev);
+    AML_LOG_DEBUG("%s", __func__);
+    adlak_platform_resume(padlak);
+    /* success */
+    AML_LOG_INFO("ADLA KMD resume done");
+    return 0;
+}
+
+static int adlak_platform_sys_pm_suspend(struct device *dev)
+{
+    pm_message_t state={0};
+    return adlak_platform_sys_suspend(to_platform_device(dev), state);
+}
+
+static int adlak_platform_sys_pm_resume(struct device *dev)
+{
+    return adlak_platform_sys_resume(to_platform_device(dev));
+}
+static const struct dev_pm_ops viv_dev_pm_ops = {
+    SET_SYSTEM_SLEEP_PM_OPS(adlak_platform_sys_pm_suspend, adlak_platform_sys_pm_resume)
+};
+
 static struct platform_driver adlak_platform_driver = {
     .probe  = adlak_platform_probe,
     .remove = adlak_platform_remove,
+    .suspend = adlak_platform_sys_suspend,
+    .resume = adlak_platform_sys_resume,
     .driver =
         {
             .name  = DEVICE_NAME,
@@ -271,6 +307,7 @@ static struct platform_driver adlak_platform_driver = {
 #ifdef CONFIG_OF
             .of_match_table = of_match_ptr(adlak_child_pdev_match),
 #endif
+            .pm     = &viv_dev_pm_ops,
         },
 };
 

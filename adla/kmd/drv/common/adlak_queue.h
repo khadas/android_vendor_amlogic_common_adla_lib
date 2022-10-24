@@ -50,6 +50,8 @@ struct adlak_global_id {
 struct adlak_dev_inference {
     adlak_os_spinlock_t spinlock;
     adlak_os_sema_t     sem_irq;
+    adlak_os_sema_t     sem_dpm;
+    int                 dmp_timeout;
     adlak_os_timer_t    emu_timer;
     adlak_os_timer_t    dpm_timer;
     adlak_os_thread_t   thrd_inference;

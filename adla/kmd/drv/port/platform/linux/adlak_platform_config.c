@@ -386,14 +386,18 @@ void adlak_platform_set_clock(void *data, bool enable, int core_freq, int axi_fr
     AML_LOG_DEBUG("%s", __func__);
 
     if (false == enable) {
-        if (!IS_ERR_OR_NULL(padlak->clk_axi)) {
-            clk_disable_unprepare(padlak->clk_axi);
+        if (true == padlak->is_clk_axi_enabled) {
+            if (!IS_ERR_OR_NULL(padlak->clk_axi)) {
+                clk_disable_unprepare(padlak->clk_axi);
+                padlak->is_clk_axi_enabled  = false;
+            }
         }
-        if (!IS_ERR_OR_NULL(padlak->clk_core)) {
-            clk_disable_unprepare(padlak->clk_core);
+        if (true == padlak->is_clk_core_enabled) {
+            if (!IS_ERR_OR_NULL(padlak->clk_core)) {
+                clk_disable_unprepare(padlak->clk_core);
+                padlak->is_clk_core_enabled = false;
+            }
         }
-        padlak->is_clk_axi_enabled  = false;
-        padlak->is_clk_core_enabled = false;
     } else {
         // clk enable
         if (false == padlak->is_clk_axi_enabled) {
