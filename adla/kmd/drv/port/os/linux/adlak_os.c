@@ -426,14 +426,16 @@ typedef struct adlak_os_timer_inner {
     unsigned long     flags;
 } adlak_os_timer_inner_t;
 
-int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(void *), void *param) {
+int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(struct timer_list *), void *param) {
     adlak_os_timer_inner_t *ptimer_inner = NULL;
+
     PRINT_FUNC_NAME;
     ptimer_inner =
         (adlak_os_timer_inner_t *)adlak_os_malloc(sizeof(adlak_os_timer_inner_t), GFP_KERNEL);
     if (IS_ERR_OR_NULL(ptimer_inner)) {
         return ERR(ENOMEM);
     }
+
     timer_setup(&ptimer_inner->timer, (void (*)(struct timer_list *))func, 0);
     *ptim = ptimer_inner;
     AML_LOG_DEBUG("timer_init success!\n");

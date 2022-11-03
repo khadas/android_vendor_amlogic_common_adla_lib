@@ -289,7 +289,7 @@ int adlak_dev_inference_cb(void *args) {
 
 #if defined(CONFIG_ADLAK_EMU_EN) && (CONFIG_ADLAK_EMU_EN == 1)
 
-static void adlak_emu_irq_cb(void *t) {
+static void adlak_emu_irq_cb(struct timer_list *t) {
     struct adlak_hw_stat *      phw_stat   = NULL;
     struct adlak_dev_inference *pinference = NULL;
     struct adlak_task *         ptask      = NULL;
@@ -309,7 +309,7 @@ static void adlak_emu_irq_cb(void *t) {
 }
 #endif
 
-static void adlak_dpm_timer_cb(void *t) {
+static void adlak_dpm_timer_cb(struct timer_list *t) {
     struct adlak_workqueue     *pwq = NULL;
     int                         all_task_num;
     pwq                             = g_adlak_pwq;
@@ -347,12 +347,12 @@ int adlak_dev_inference_init(struct adlak_device *padlak) {
     ret = adlak_os_sema_init(&pinference->sem_irq, 1, 0);
 
 #if defined(CONFIG_ADLAK_EMU_EN) && (CONFIG_ADLAK_EMU_EN == 1)
-    ret = adlak_os_timer_init(&pinference->emu_timer, (void (*)(void *))adlak_emu_irq_cb, NULL);
+    ret = adlak_os_timer_init(&pinference->emu_timer, adlak_emu_irq_cb, NULL);
     if (ret) {
         AML_LOG_ERR("emu_timer init fail!\n");
     }
 #endif
-    ret = adlak_os_timer_init(&pinference->dpm_timer, (void (*)(void *))adlak_dpm_timer_cb, NULL);
+    ret = adlak_os_timer_init(&pinference->dpm_timer, adlak_dpm_timer_cb, NULL);
     if (ret) {
         AML_LOG_ERR("emu_timer init fail!\n");
     }
