@@ -1,3 +1,17 @@
+package {
+    default_applicable_licenses: ["vendor_amlogic_common_adla_license"],
+}
+
+license {
+    name: "vendor_amlogic_common_adla_license",
+    visibility: [
+        ":__subpackages__",
+    ],
+    license_kinds: [
+        "SPDX-license-identifier-GPL-2.0",
+    ],
+}
+
 cc_prebuilt_library_shared {
    name: "libadla",
    vendor: true,

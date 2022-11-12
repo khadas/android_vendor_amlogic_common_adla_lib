@@ -16,6 +16,8 @@ LOCAL_MODULE         := libnnsdk_bak
 else
 LOCAL_MODULE         := libnnsdk
 endif
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-GPL-2.0+
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
 LOCAL_MODULE_CLASS   := SHARED_LIBRARIES

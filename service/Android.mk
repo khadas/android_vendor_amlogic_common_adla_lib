@@ -49,6 +49,9 @@ LOCAL_PREBUILT_MODULE_FILE   := $(SERVICE_PATH)/android.hardware.neuralnetworks@
 LOCAL_MODULE_CLASS := EXECUTABLES
 #LOCAL_CHECK_ELF_FILES := false
 LOCAL_MODULE      := android.hardware.neuralnetworks@1.3-service-aml-driver
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-GPL-2.0+
+LOCAL_LICENSE_CONDITIONS := notice
+
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_PROPRIETARY_MODULE := true
