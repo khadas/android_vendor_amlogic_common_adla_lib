@@ -29,43 +29,4 @@ cc_prebuilt_library_shared {
    },
 }
 
-cc_prebuilt_library_shared {
-   name: "libadla_nnrt",
-   vendor: true,
-   arch: {
-      arm: {
-         srcs: ["libraryso/lib32/libadla_nnrt.so"],
-      },
-      arm64: {
-         srcs: ["libraryso/lib64/libadla_nnrt.so"],
-      },
-   },
-   check_elf_files: false,
-   strip: {
-            none:true,
-   },
-}
-
-cc_prebuilt_library_shared {
-   name: "libadla_compiler",
-   vendor: true,
-   arch: {
-      arm: {
-         srcs: ["libraryso/lib32/libadla_compiler.so"],
-      },
-      arm64: {
-         srcs: ["libraryso/lib64/libadla_compiler.so"],
-      },
-   },
-   check_elf_files: false,
-   strip: {
-            none:true,
-   },
-}
-
-cc_library_headers {
-    name: "adla_libnnsdk_headers",
-    vendor: true,
-    export_include_dirs: ["include"],
-}
 
