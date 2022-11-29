@@ -101,6 +101,7 @@ static int adlak_log_level = -1;
 module_param_named(log_level, adlak_log_level, int, 0644);
 MODULE_PARM_DESC(log_level, "the default log_level of kmd");
 
+
 /**************************** Type Definitions *******************************/
 
 /***************** Macros (Inline Functions) Definitions *********************/
@@ -246,6 +247,17 @@ static bool adlak_smmu_available(struct device *dev) {
 #endif
     return has_smmu;
 }
+
+static bool adlak_regulator_nn_available(struct device *dev) {
+    bool regulator_nna = false;
+#ifdef CONFIG_OF
+    if (of_property_read_bool(dev->of_node, "regulator_nn")) {
+        regulator_nna = true;
+    }
+#endif
+    return regulator_nna;
+}
+
 int adlak_platform_get_resource(void *data) {
     int                  ret    = 0;
     struct resource *    res    = NULL;
@@ -261,8 +273,14 @@ int adlak_platform_get_resource(void *data) {
         AML_LOG_INFO("smmu not available.\n");
     }
 
-    /* get ADLAK IO */
+    padlak->regulator_nn_en = adlak_regulator_nn_available(padlak->dev);
+    if (padlak->regulator_nn_en) {
+        AML_LOG_INFO("regulator nna available.\n");
+    } else {
+        AML_LOG_INFO("regulator nna not available.\n");
+    }
 
+    /* get ADLAK IO */
     res = platform_get_resource_byname(padlak->pdev, IORESOURCE_MEM, "adla_reg");
     if (!res) {
         AML_LOG_ERR("get platform io region failed");
@@ -329,7 +347,7 @@ int adlak_platform_get_resource(void *data) {
 
     padlak->clk_axi = devm_clk_get(padlak->dev, "adla_axi_clk");
     if (IS_ERR(padlak->clk_axi)) {
-        AML_LOG_ERR("Failed to get adla_axi_clk\n");
+        AML_LOG_WARN("Failed to get adla_axi_clk\n");
     }
     padlak->clk_core = devm_clk_get(padlak->dev, "adla_core_clk");
     if (IS_ERR(padlak->clk_core)) {

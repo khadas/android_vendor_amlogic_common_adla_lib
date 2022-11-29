@@ -28,7 +28,7 @@
 #include "adlak_platform_config.h"
 #include "adlak_profile.h"
 #include "adlak_submit.h"
-
+#include <linux/regulator/consumer.h>
 /************************** Constant Definitions *****************************/
 
 /**************************** Type Definitions *******************************/
@@ -56,6 +56,8 @@ static const struct of_device_id adlak_child_pdev_match[] = {{
 MODULE_DEVICE_TABLE(of, adlak_child_pdev_match);
 #endif
 
+struct regulator            *regulator_nna;
+#define REGULATOR_NAME      "vdd_npu"
 /************************** Function Prototypes ******************************/
 
 /*****************************************************************************/
@@ -167,12 +169,60 @@ static int adlak_destroy_misc(struct adlak_device *padlak) {
     return 0;
 }
 
+int adlak_voltage_init(void *data) {
+    int ret = 0;
+    struct adlak_device *padlak = (struct adlak_device *)data;
+
+    regulator_nna = devm_regulator_get(padlak->dev, REGULATOR_NAME);
+    if (IS_ERR(regulator_nna)) {
+        AML_LOG_ERR("regulator_get vddnpu fail!\n");
+    }
+
+    ret = regulator_enable(regulator_nna);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_enable error\n");
+    }
+
+    AML_LOG_INFO("ADLA KMD voltage init success ");
+
+    return ret;
+}
+
+int adlak_voltage_uninit(void *data) {
+    int ret = 0;
+
+    if (regulator_nna == NULL)
+    {
+        AML_LOG_ERR("regulator supply is NULL\n");
+        return -1;
+    }
+    ret = regulator_disable(regulator_nna);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_disable error\n");
+    }
+
+    devm_regulator_put(regulator_nna);
+
+    AML_LOG_INFO("ADLA KMD voltage uninit success ");
+    return ret;
+}
 static int adlak_platform_remove(struct platform_device *pdev) {
     int                  ret    = 0;
     struct adlak_device *padlak = platform_get_drvdata(pdev);
     AML_LOG_DEBUG("%s", __func__);
     adlak_device_deinit((void *)padlak);
     adlak_os_mutex_lock(&padlak->dev_mutex);
+
+    if (padlak->regulator_nn_en)
+    {
+        ret = adlak_voltage_uninit(padlak);
+        if (ret < 0)
+        {
+            AML_LOG_ERR("voltage uninit fail!\n");
+        }
+    }
 
     adlak_platform_free_resource(padlak);
 
@@ -223,6 +273,15 @@ static int adlak_platform_probe(struct platform_device *pdev) {
     ret            = adlak_platform_get_resource(padlak);
     if (ret) {
         goto err_get_res;
+    }
+    /* set voltage */
+    if (padlak->regulator_nn_en)
+    {
+        ret = adlak_voltage_init(padlak);
+        if (ret < 0)
+        {
+            AML_LOG_ERR("voltage init fail!\n");
+        }
     }
     ret = adlak_platform_request_resource(padlak);
     if (ret) {
