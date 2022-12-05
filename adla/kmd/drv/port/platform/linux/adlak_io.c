@@ -34,7 +34,7 @@
 
 /************************** Function Prototypes ******************************/
 
-struct io_region *adlak_create_ioregion(uintptr_t phys_base, u32 size) {
+struct io_region *adlak_create_ioregion(uintptr_t phys_base, uint32_t size) {
     struct io_region *region = NULL;
 
     if ((!size)) {
@@ -43,7 +43,7 @@ struct io_region *adlak_create_ioregion(uintptr_t phys_base, u32 size) {
     }
     AML_LOG_DEBUG("%s", __func__);
 
-    region = adlak_os_zalloc(sizeof(struct io_region), GFP_KERNEL);
+    region = adlak_os_zalloc(sizeof(struct io_region), ADLAK_GFP_KERNEL);
     if (!region) goto fail;
 
     if (!request_mem_region(phys_base, size, DEVICE_NAME)) {

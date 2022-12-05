@@ -30,10 +30,31 @@
 extern "C" {
 #endif
 
+#define ADLAK_GFP_KERNEL GFP_KERNEL
+#define ADLAK_IS_ALIGNED(x, a) IS_ALIGNED((x), (a))
+#define ADLAK_ALIGN(a, b) ALIGN((a), (b))
+#define ADLAK_ARRAY_SIZE(x) ARRAY_SIZE((x))
+#define ADLAK_PAGE_SIZE PAGE_SIZE
+#define ADLAK_PAGE_ALIGN(addr) PAGE_ALIGN((addr))
+#define ADLAK_DIV_ROUND_UP(n, d) DIV_ROUND_UP((n), (d))
+#define adlak_cant_sleep cant_sleep
+#define adlak_might_sleep might_sleep
+
+#ifndef CONFIG_ADLA_FREERTOS
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+#define adlak_access_ok(addr, size) access_ok(addr, size)
+#else
+#define adlak_access_ok(type, addr, size) access_ok(type, addr, size)
+#endif
+#endif
+
 void *adlak_os_malloc(size_t size, uint32_t flag);
 void *adlak_os_zalloc(size_t size, uint32_t flag);
 void *adlak_os_calloc(size_t num, size_t size, uint32_t flag);
 void  adlak_os_free(void *ptr);
+void *adlak_os_vmalloc(size_t size, uint32_t flag);
+void *adlak_os_vzalloc(size_t size, uint32_t flag);
+void  adlak_os_vfree(void *ptr);
 void *adlak_os_memset(void *dest, int ch, size_t count);
 void *adlak_os_memcpy(void *dest, const void *src, size_t count);
 int   adlak_os_memcmp(const void *lhs, const void *rhs, size_t count);

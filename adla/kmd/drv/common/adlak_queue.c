@@ -84,8 +84,8 @@ int adlak_queue_reset(struct adlak_device *padlak) {
     pwq->ready_num     = 0;
     pwq->ready_num_max = ADLAK_RADY_LIST_MAX;
 
-    memset((void *)&pwq->id_cur, 0, sizeof(pwq->id_cur));
-    memset((void *)&pwq->id_backup, 0, sizeof(pwq->id_backup));
+    adlak_os_memset((void *)&pwq->id_cur, 0, sizeof(pwq->id_cur));
+    adlak_os_memset((void *)&pwq->id_backup, 0, sizeof(pwq->id_backup));
     pwq->id_cur.global_id_pwe    = -1;
     pwq->id_cur.global_id_pwx    = -1;
     pwq->id_cur.global_id_rs     = -1;
@@ -178,7 +178,8 @@ static int print_task_info(char *buf, ssize_t buf_size, struct adlak_task *ptask
 static int print_task_list(struct list_head *hd, char *buf, ssize_t buf_size) {
     int ret = 0;
 
-    struct adlak_task *ptask = NULL;
+    struct adlak_task *ptask     = NULL;
+    struct adlak_task *ptask_tmp = NULL;
     int                number;
 
     char boudary[] =
@@ -188,7 +189,7 @@ static int print_task_list(struct list_head *hd, char *buf, ssize_t buf_size) {
     ret += adlak_os_snprintf(buf + ret, buf_size - ret, "%s\n", boudary);
     ptask  = NULL;
     number = 0;
-    list_for_each_entry(ptask, hd, head) {
+    list_for_each_entry_safe(ptask, ptask_tmp, hd, head) {
         ret += print_task_info(buf + ret, buf_size - ret, ptask);
         number++;
     }
@@ -213,7 +214,7 @@ int adlak_debug_invoke_list_dump(struct adlak_device *padlak, uint32_t debug) {
     AML_LOG_DEBUG("%s", __func__);
     pwq      = &padlak->queue;
     buf_size = 4096;
-    buf      = adlak_os_malloc(buf_size, GFP_KERNEL);
+    buf      = adlak_os_malloc(buf_size, ADLAK_GFP_KERNEL);
     if (!buf) {
         return 0;
     }
@@ -270,8 +271,8 @@ int adlak_debug_invoke_list_dump(struct adlak_device *padlak, uint32_t debug) {
 }
 
 int adlak_test_irq_emu(struct adlak_device *padlak) { return 0; }
-u32 inline adlak_cmd_get_sw_id(struct adlak_workqueue *pwq) {
-    u32 id = pwq->id_cur.global_id_sw++;
-    id     = PS_CMD_SET_SW_ID | (id & PS_CMD_SW_ID_MASK);
+uint32_t inline adlak_cmd_get_sw_id(struct adlak_workqueue *pwq) {
+    uint32_t id = pwq->id_cur.global_id_sw++;
+    id          = PS_CMD_SET_SW_ID | (id & PS_CMD_SW_ID_MASK);
     return id;
 }

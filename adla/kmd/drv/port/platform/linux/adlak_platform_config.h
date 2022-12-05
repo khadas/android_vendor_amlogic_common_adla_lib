@@ -58,6 +58,7 @@ extern "C" {
 int adlak_platform_device_init(void);
 int adlak_platform_device_uninit(void);
 int adlak_platform_get_resource(void *data);
+int adlak_platform_get_rsv_mem_size(void *dev, uint64_t *mem_size);
 
 int adlak_platform_request_resource(void *data);
 

@@ -47,7 +47,7 @@ int adlak_mem_alloc_request(struct adlak_context *context, struct adlak_buf_req 
     AML_LOG_DEBUG("mem_alloc_request size:0x%lX bytes", (uintptr_t)pbuf_req->bytes);
     mm_info = adlak_mm_alloc(padlak->mm, pbuf_req);
 
-    if (IS_ERR_OR_NULL(mm_info)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm_info)) {
         ret = ERR(ENOMEM);
         AML_LOG_ERR("adlak_dma_alloc_and_map failed.");
         goto err_malloc;
@@ -59,16 +59,16 @@ int adlak_mem_alloc_request(struct adlak_context *context, struct adlak_buf_req 
             goto err_mmap;
         }
     }
-    AML_LOG_DEBUG("\ncpu_addr=0x%lX, ", (uintptr_t)mm_info->cpu_addr);
+    AML_LOG_DEBUG("cpu_addr=0x%lX, ", (uintptr_t)mm_info->cpu_addr);
     AML_LOG_DEBUG("cpu_addr_user=0x%lX, ", (uintptr_t)mm_info->cpu_addr_user);
     AML_LOG_DEBUG("iova_addr=0x%lX, ", (uintptr_t)mm_info->iova_addr);
-    AML_LOG_DEBUG("size=%lu Kbytes, \n", (uintptr_t)(mm_info->req.bytes / 1024));
+    AML_LOG_DEBUG("size=%lu Kbytes\n", (uintptr_t)(mm_info->req.bytes / 1024));
     pbuf_req->ret_desc.bytes = mm_info->req.bytes;
 
-    pbuf_req->ret_desc.va_kernel = (u64)(uintptr_t)mm_info->cpu_addr;
-    pbuf_req->ret_desc.va_user   = (u64)(uintptr_t)mm_info->cpu_addr_user;
-    pbuf_req->ret_desc.iova_addr = (u64)(uintptr_t)mm_info->iova_addr;
-    pbuf_req->ret_desc.phys_addr = (u64)(uintptr_t)mm_info->phys_addr;
+    pbuf_req->ret_desc.va_kernel = (uint64_t)(uintptr_t)mm_info->cpu_addr;
+    pbuf_req->ret_desc.va_user   = (uint64_t)(uintptr_t)mm_info->cpu_addr_user;
+    pbuf_req->ret_desc.iova_addr = (uint64_t)(uintptr_t)mm_info->iova_addr;
+    pbuf_req->ret_desc.phys_addr = (uint64_t)(uintptr_t)mm_info->phys_addr;
 
     if (ERR(NONE) == ret) {
         ret = adlak_context_attach_buf(context, (void *)mm_info);
@@ -126,11 +126,11 @@ err:
 }
 int adlak_ext_mem_attach_request(struct adlak_context *        context,
                                  struct adlak_extern_buf_info *pbuf_req) {
-    int                      ret = 0;
-    struct adlak_mem_handle *mm_info;
-    struct adlak_device *    padlak = context->padlak;
+    int                      ret     = 0;
+    struct adlak_mem_handle *mm_info = NULL;
+    struct adlak_device *    padlak  = context->padlak;
     AML_LOG_DEBUG("%s", __func__);
-    if (PAGE_ALIGN(pbuf_req->bytes) != pbuf_req->bytes) {
+    if (ADLAK_PAGE_ALIGN(pbuf_req->bytes) != pbuf_req->bytes) {
         ret = -1;
         AML_LOG_ERR("mem size is not align with page_size.");
         goto err;
@@ -153,8 +153,7 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
         goto err;
     }
 
-
-    if (IS_ERR_OR_NULL(mm_info)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm_info)) {
         ret = -1;
         AML_LOG_ERR("adlak_dma_alloc_and_map failed.");
         goto err;
@@ -179,10 +178,10 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
     AML_LOG_DEBUG("size=%lu Kbytes\n", (uintptr_t)(mm_info->req.bytes / 1024));
     pbuf_req->ret_desc.bytes = mm_info->req.bytes;
 
-    pbuf_req->ret_desc.va_kernel = (u64)(uintptr_t)mm_info->cpu_addr;
-    pbuf_req->ret_desc.va_user   = (u64)(uintptr_t)mm_info->cpu_addr_user;
-    pbuf_req->ret_desc.iova_addr = (u64)(uintptr_t)mm_info->iova_addr;
-    pbuf_req->ret_desc.phys_addr = (u64)(uintptr_t)mm_info->phys_addr;
+    pbuf_req->ret_desc.va_kernel = (uint64_t)(uintptr_t)mm_info->cpu_addr;
+    pbuf_req->ret_desc.va_user   = (uint64_t)(uintptr_t)mm_info->cpu_addr_user;
+    pbuf_req->ret_desc.iova_addr = (uint64_t)(uintptr_t)mm_info->iova_addr;
+    pbuf_req->ret_desc.phys_addr = (uint64_t)(uintptr_t)mm_info->phys_addr;
 
     pbuf_req->errcode = 0;
 
@@ -196,6 +195,7 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
 err_mmap:
     adlak_mm_dettach(padlak->mm, mm_info);
 err:
+
     return ret;
 }
 
@@ -359,7 +359,7 @@ int adlak_mem_deinit(struct adlak_device *padlak) {
     return 0;
 }
 
-int adlak_mem_mmap(struct adlak_context *context, void *const vma, u64 iova_addr) {
+int adlak_mem_mmap(struct adlak_context *context, void *const vma, uint64_t iova_addr) {
     int                  ret    = 0;
     struct adlak_device *padlak = context->padlak;
 

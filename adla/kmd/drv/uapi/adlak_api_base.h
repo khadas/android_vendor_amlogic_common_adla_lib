@@ -34,14 +34,14 @@ extern "C" {
 /**************************Type Definition and Structure**********************/
 
 struct adlak_buf_desc {
-    __u64 iova_addr;     /* virtual address in smmu*/
-    __u64 va_user;       /* virtual address in user mode*/
-    __u64 va_kernel;     /* virtual address in kernel mode*/
-    __u64 phys_addr;     /* physical base address if mem_type is contiguous*/
-    __u64 bytes;         /*return real size*/
-    __u32 mem_type;      /*requst info*/
-    __u32 mem_src;       /*requst info*/
-    __u32 mem_direction; /*requst info*/
+    uint64_t iova_addr;     /* virtual address in smmu*/
+    uint64_t va_user;       /* virtual address in user mode*/
+    uint64_t va_kernel;     /* virtual address in kernel mode*/
+    uint64_t phys_addr;     /* physical base address if mem_type is contiguous*/
+    uint64_t bytes;         /*return real size*/
+    uint32_t mem_type;      /*request info*/
+    uint32_t mem_src;       /*request info*/
+    uint32_t mem_direction; /*request info*/
 } __packed;
 
 enum adlak_mem_type {
@@ -58,21 +58,21 @@ enum adlak_mem_direction {
 } __packed;
 
 struct adlak_buf_req {
-    __u64                 bytes;         /* bytes requested to allocate */
-    __u32                 align_in_page; /* alignment requirements (in 4KB) */
-    __u32                 data_type;     /* type of data in the buffer to allocate */
+    uint64_t              bytes;         /* bytes requested to allocate */
+    uint32_t              align_in_page; /* alignment requirements (in 4KB) */
+    uint32_t              data_type;     /* type of data in the buffer to allocate */
     struct adlak_buf_desc ret_desc;      /* info of buffer successfully allocated */
-    __u32                 mmap_en;       /* the flag of mmap */
-    __u32                 errcode;       /* return err number */
+    uint32_t              mmap_en;       /* the flag of mmap */
+    uint32_t              errcode;       /* return err number */
 } __packed;
 
 struct adlak_extern_buf_info {
-    __u64                 buf_handle; /* buf handle */
-    __u64                 bytes;      /* bytes of buffer */
-    __u32                 buf_type;   /* type of buf handle */
+    uint64_t              buf_handle; /* buf handle */
+    uint64_t              bytes;      /* bytes of buffer */
+    uint32_t              buf_type;   /* type of buf handle */
     struct adlak_buf_desc ret_desc;   /* info of buffer successfully import */
-	__u32              mmap_en;    /* the flag of mmap */
-    __u32                 errcode;    /* return err number */
+    uint32_t              mmap_en;    /* the flag of mmap */
+    uint32_t              errcode;    /* return err number */
 } __packed;
 
 enum adlak_flush_cache_direction {
@@ -83,85 +83,85 @@ enum adlak_flush_cache_direction {
 
 struct adlak_buf_flush {
     struct adlak_buf_desc buf_desc; /* info of buffer  */
-    __u32                 direction;
-    __u32                 errcode; /* return err number */
+    uint32_t              direction;
+    uint32_t              errcode; /* return err number */
 } __packed;
 
 struct adlak_network_desc {
-    __u32 config_size;
-    __u32 dep_fixups_num;
-    __u32 reg_fixups_num;
-    __u32 tasks_num;
-    __u64 config_va;
-    __u64 dep_fixups_va;
-    __u64 reg_fixups_va;
-    __u64 tasks_va;
-    __s32 profile_en;  // profilling enable
-    __u64 profile_iova;
-    __u32 profile_buf_size;
-    __s32 net_register_idx;  // return from kmd
+    uint32_t config_size;
+    uint32_t dep_fixups_num;
+    uint32_t reg_fixups_num;
+    uint32_t tasks_num;
+    uint64_t config_va;
+    uint64_t dep_fixups_va;
+    uint64_t reg_fixups_va;
+    uint64_t tasks_va;
+    int32_t  profile_en;  // profilling enable
+    uint64_t profile_iova;
+    uint32_t profile_buf_size;
+    int32_t  net_register_idx;  // return from kmd
 
 } __packed;
 
 struct adlak_network_del_desc {
-    __s32 net_register_idx;
+    int32_t net_register_idx;
 } __packed;
 
 struct adlak_network_invoke_desc {
-    __s32 net_register_idx;
-    __s32 invoke_register_idx;  // return from kmd
-    __s32 start_idx;
-    __s32 end_idx;
-    __s32 addr_fixups_num;
-    __u64 addr_fixups_va;
+    int32_t  net_register_idx;
+    int32_t  invoke_register_idx;  // return from kmd
+    int32_t  start_idx;
+    int32_t  end_idx;
+    int32_t  addr_fixups_num;
+    uint64_t addr_fixups_va;
 
 } __packed;
 
 struct adlak_network_invoke_del_desc {
-    __s32 net_register_idx;
-    __s32 invoke_register_idx;
+    int32_t net_register_idx;
+    int32_t invoke_register_idx;
 
 } __packed;
 
 struct adlak_get_stat_desc {
-    __s32 net_register_idx;
-    __s32 invoke_register_idx;
-    __s32 start_idx;       // return from kmd
-    __s32 end_idx;         // return from kmd
-    __s32 ret_state;       // 0: success,1:running,-1: timeout, -3: other err
-    __s32 profile_en;      // profilling enable
-    __u32 profile_rpt;     // profilling read point
-    __s32 invoke_time_us;  // invoke time which get from os
+    int32_t  net_register_idx;
+    int32_t  invoke_register_idx;
+    int32_t  start_idx;       // return from kmd
+    int32_t  end_idx;         // return from kmd
+    int32_t  ret_state;       // 0: success,1:running,-1: timeout, -3: other err
+    int32_t  profile_en;      // profilling enable
+    uint32_t profile_rpt;     // profilling read point
+    int32_t  invoke_time_us;  // invoke time which get from os
 
-    __u64 axi_freq_cur;      // adlak axi clock frequency currently
-    __u64 core_freq_cur;     // adlak core clock frequency currently
-    __u64 mem_alloced_base;  // alloced by kmd
-    __u64 mem_alloced_umd;   // alloced by umd in this context
-    __s64 mem_pool_size;     //-1:the limit base on the system
-    __u64 mem_pool_used;     // memory usage
-    __s32 efficiency;
+    uint64_t axi_freq_cur;      // adlak axi clock frequency currently
+    uint64_t core_freq_cur;     // adlak core clock frequency currently
+    uint64_t mem_alloced_base;  // alloced by kmd
+    uint64_t mem_alloced_umd;   // alloced by umd in this context
+    int64_t  mem_pool_size;     //-1:the limit base on the system
+    uint64_t mem_pool_used;     // memory usage
+    int32_t  efficiency;
 } __packed;
 
 struct adlak_profile_cfg_desc {
-    __s32 net_register_idx;
-    __s32 profile_en;  // profilling enable
-    __u64 profile_iova;
-    __u32 profile_buf_size;
-    __u32 errcode; /* return err number */
+    int32_t  net_register_idx;
+    int32_t  profile_en;  // profilling enable
+    uint64_t profile_iova;
+    uint32_t profile_buf_size;
+    uint32_t errcode; /* return err number */
 
 } __packed;
 
 struct adlak_test_desc {
-    __u64 type;
+    uint64_t type;
 } __packed;
 
 struct adlak_caps_desc {
-    __u32 hw_ver;        /* adlak hardware version*/
-    __u64 axi_freq_max;  /* adlak axi clock frequency maximum */
-    __u64 core_freq_max; /* adlak core clock frequency maximum */
-    __u32 cmq_size;      /* cmq buffer size*/
-    __u64 sram_base;     /* axi sram base addr*/
-    __u32 sram_size;     /* axi sram buffer size*/
+    uint32_t hw_ver;        /* adlak hardware version*/
+    uint64_t axi_freq_max;  /* adlak axi clock frequency maximum */
+    uint64_t core_freq_max; /* adlak core clock frequency maximum */
+    uint32_t cmq_size;      /* cmq buffer size*/
+    uint64_t sram_base;     /* axi sram base addr*/
+    uint32_t sram_size;     /* axi sram buffer size*/
 } __packed;
 
 /************************** Function Prototypes ******************************/

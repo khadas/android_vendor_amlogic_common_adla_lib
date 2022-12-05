@@ -46,7 +46,7 @@ extern "C" {
 
 #define ADLAK_IOCTL_MAGIC 'X'
 
-#define ADLAK_IOCTL_QUERYCAP _IOR(ADLAK_IOCTL_MAGIC, 0, struct adlak_caps_desc)
+#define ADLAK_IOCTL_QUERYCAP _IOWR(ADLAK_IOCTL_MAGIC, 0, struct adlak_caps_desc)
 #define ADLAK_IOCTL_REQBUF _IOWR(ADLAK_IOCTL_MAGIC, 1, struct adlak_buf_req)
 #define ADLAK_IOCTL_FREEBUF _IOW(ADLAK_IOCTL_MAGIC, 2, struct adlak_buf_desc)
 #define ADLAK_IOCTL_REGISTER_NETWORK _IOWR(ADLAK_IOCTL_MAGIC, 3, struct adlak_network_desc)
@@ -63,8 +63,7 @@ extern "C" {
 #define ADLAK_IOCTL_ATTACH_EXTERN_BUF _IOWR(ADLAK_IOCTL_MAGIC, 12, struct adlak_extern_buf_info)
 #define ADLAK_IOCTL_DETTACH_EXTERN_BUF _IOW(ADLAK_IOCTL_MAGIC, 13, struct adlak_extern_buf_info)
 #define ADLAK_IOCTL_PRPOFILE_CFG _IOWR(ADLAK_IOCTL_MAGIC, 14, struct adlak_profile_cfg_desc)
-#define ADLAK_IOCTL_QUERYCAPSIZE _IOR(ADLAK_IOCTL_MAGIC, 15, int)
-#define ADLAK_IOCTL_WAIT_UNTIL_FINISH _IOWR(ADLAK_IOCTL_MAGIC, 16, struct adlak_get_stat_desc)
+#define ADLAK_IOCTL_WAIT_UNTIL_FINISH _IOWR(ADLAK_IOCTL_MAGIC, 15, struct adlak_get_stat_desc)
 
 /************************** Function Prototypes ******************************/
 

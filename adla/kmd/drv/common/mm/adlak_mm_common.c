@@ -74,7 +74,7 @@ int adlak_bitmap_pool_init(struct adlak_mm_pool_priv *pool, size_t pool_size) {
     size_t bitmap_size;
     AML_LOG_DEBUG("%s", __func__);
     bitmap_size  = BITS_TO_LONGS(pool_size >> ADLAK_MM_POOL_PAGE_SHIFT) * sizeof(unsigned long);
-    pool->bitmap = adlak_os_zalloc(bitmap_size, GFP_KERNEL);
+    pool->bitmap = adlak_os_vzalloc(bitmap_size, ADLAK_GFP_KERNEL);
     if (!pool->bitmap) {
         return ERR(ENOMEM);
     }
@@ -96,7 +96,7 @@ void adlak_bitmap_pool_deinit(struct adlak_mm_pool_priv *pool) {
     adlak_os_mutex_unlock(&pool->lock);
     adlak_os_mutex_destroy(&pool->lock);
     if (pool->bitmap) {
-        adlak_os_free(pool->bitmap);
+        adlak_os_vfree(pool->bitmap);
         pool->bitmap = NULL;
     }
 }
@@ -134,7 +134,7 @@ unsigned long adlak_alloc_from_bitmap_pool(struct adlak_mm_pool_priv *pool, size
     if (!pool || size == 0) {
         return ERR(ENOMEM);
     }
-    size         = ALIGN(size, ADLAK_MM_POOL_PAGE_SIZE);
+    size         = ADLAK_ALIGN(size, ADLAK_MM_POOL_PAGE_SIZE);
     bitmap_count = size >> ADLAK_MM_POOL_PAGE_SHIFT;
     adlak_os_mutex_lock(&pool->lock);
     if (bitmap_count > (pool->bits - pool->used_count)) {
@@ -172,10 +172,10 @@ ret:
 void adlak_free_to_bitmap_pool(struct adlak_mm_pool_priv *pool, dma_addr_t start, size_t size) {
     int bitmap_count;
 
-    if (!pool || IS_ERR((void *)start)) {
+    if (!pool || ADLAK_IS_ERR((void *)start)) {
         return;
     }
-    size         = ALIGN(size, ADLAK_MM_POOL_PAGE_SIZE);
+    size         = ADLAK_ALIGN(size, ADLAK_MM_POOL_PAGE_SIZE);
     bitmap_count = size >> ADLAK_MM_POOL_PAGE_SHIFT;
     adlak_os_mutex_lock(&pool->lock);
     bitmap_clear(pool->bitmap, (start - pool->addr_base) / ADLAK_MM_POOL_PAGE_SIZE, bitmap_count);
@@ -188,8 +188,8 @@ int adlak_mm_init(struct adlak_device *padlak) {
     struct adlak_mem *mm  = NULL;
 
     AML_LOG_DEBUG("%s", __func__);
-    mm = adlak_os_zalloc(sizeof(struct adlak_mem), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(mm)) {
+    mm = adlak_os_zalloc(sizeof(struct adlak_mem), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(mm)) {
         ret = -1;
         goto err_alloc;
     }
@@ -262,7 +262,7 @@ err_alloc:
 
 void adlak_mm_deinit(struct adlak_device *padlak) {
     struct adlak_mem *mm = padlak->mm;
-    if (IS_ERR_OR_NULL(mm)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm)) {
         return;
     }
     if (!mm->use_smmu) {
@@ -301,7 +301,7 @@ int adlak_flush_cache(struct adlak_device *padlak, struct adlak_mem_handle *mm_i
     struct adlak_mem *mm = padlak->mm;
 
     AML_LOG_DEBUG("%s", __func__);
-    if (IS_ERR_OR_NULL(mm_info)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm_info)) {
         return -1;
     }
     if (0 == (mm_info->mem_type & ADLAK_ENUM_MEMTYPE_INNER_CACHEABLE)) {
@@ -327,7 +327,7 @@ int adlak_invalid_cache(struct adlak_device *padlak, struct adlak_mem_handle *mm
     struct adlak_mem *mm = padlak->mm;
 
     AML_LOG_DEBUG("%s", __func__);
-    if (IS_ERR_OR_NULL(mm_info)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm_info)) {
         return -1;
     }
     if (0 == (mm_info->mem_type & ADLAK_ENUM_MEMTYPE_INNER_CACHEABLE)) {
@@ -393,7 +393,7 @@ static int adlak_malloc_from_mem_pool(struct adlak_mem *mm, struct adlak_mem_han
     AML_LOG_DEBUG("%s", __func__);
 
     start = adlak_alloc_from_bitmap_pool(&mm->mem_pool->bitmap_area, (size_t)mm_info->req.bytes);
-    if (IS_ERR((void *)start)) {
+    if (ADLAK_IS_ERR((void *)start)) {
         mm_info->phys_addr = 0;
         return ERR(ENOMEM);
     }
@@ -564,16 +564,16 @@ struct adlak_mem_handle *adlak_mm_alloc(struct adlak_mem *mm, struct adlak_buf_r
     if (!pbuf_req->bytes) {
         return (void *)NULL;
     }
-    mm_info = adlak_os_zalloc(sizeof(struct adlak_mem_handle), GFP_KERNEL);
+    mm_info = adlak_os_zalloc(sizeof(struct adlak_mem_handle), ADLAK_GFP_KERNEL);
     if (unlikely(!mm_info)) {
         goto end;
     }
-    mm_info->req.bytes         = PAGE_ALIGN(pbuf_req->bytes);
+    mm_info->req.bytes         = ADLAK_PAGE_ALIGN(pbuf_req->bytes);
     mm_info->req.mem_direction = pbuf_req->ret_desc.mem_direction;
 
     adlak_mm_rewrite_memtype(mm, pbuf_req, mm_info);
 
-    mm_info->nr_pages = DIV_ROUND_UP(mm_info->req.bytes, PAGE_SIZE);
+    mm_info->nr_pages = ADLAK_DIV_ROUND_UP(mm_info->req.bytes, ADLAK_PAGE_SIZE);
     mm_info->cpu_addr = NULL;
     if (mm_info->req.mem_type & ADLAK_ENUM_MEMTYPE_INNER_CACHEABLE) {
         ret = adlak_malloc_cacheable(mm, mm_info);
@@ -628,22 +628,23 @@ void adlak_mm_dettach(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) {
 struct adlak_mem_handle *adlak_mm_attach(struct adlak_mem *            mm,
                                          struct adlak_extern_buf_info *pbuf_req) {
     int                      ret;
-    struct adlak_mem_handle *mm_info = NULL;
+    struct adlak_mem_handle *mm_info   = NULL;
     uint64_t                 phys_addr = pbuf_req->buf_handle;
-    size_t                   size    = pbuf_req->bytes;
-    if (!size || !PAGE_ALIGNED(size)) {
+    size_t                   size      = pbuf_req->bytes;
+    if (!size || !ADLAK_IS_ALIGNED((unsigned long)(size), ADLAK_PAGE_SIZE)) {
         goto early_exit;
     }
-    mm_info = adlak_os_zalloc(sizeof(struct adlak_mem_handle), GFP_KERNEL);
+    mm_info = adlak_os_zalloc(sizeof(struct adlak_mem_handle), ADLAK_GFP_KERNEL);
     if (unlikely(!mm_info)) {
         goto end;
     }
-    mm_info->req.bytes         = size;
-    mm_info->req.mem_type      = ADLAK_ENUM_MEMTYPE_INNER_CONTIGUOUS;
+    mm_info->req.bytes    = size;
+    mm_info->req.mem_type = ADLAK_ENUM_MEMTYPE_INNER_CONTIGUOUS;
+    // set as uncacheable for exttern memory
     mm_info->req.mem_direction = pbuf_req->ret_desc.mem_direction;
     mm_info->req.mem_direction = pbuf_req->ret_desc.mem_direction;
 
-    mm_info->nr_pages = DIV_ROUND_UP(mm_info->req.bytes, PAGE_SIZE);
+    mm_info->nr_pages = ADLAK_DIV_ROUND_UP(mm_info->req.bytes, ADLAK_PAGE_SIZE);
     mm_info->cpu_addr = NULL;
 
     mm_info->mem_src = ADLAK_ENUM_MEMSRC_EXT_PHYS;

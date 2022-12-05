@@ -34,7 +34,7 @@
 /************************** Function Prototypes ******************************/
 
 void adlak_smmu_addr_pool_deinit(struct adlak_mem *mm) {
-    if (IS_ERR_OR_NULL(mm->smmu)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm->smmu)) {
         return;
     }
     adlak_bitmap_pool_deinit(&mm->smmu->bitmap_area);
@@ -42,8 +42,8 @@ void adlak_smmu_addr_pool_deinit(struct adlak_mem *mm) {
 }
 
 int adlak_smmu_addr_pool_init(struct adlak_mem *mm) {
-    mm->smmu = adlak_os_zalloc(sizeof(struct adlak_mem), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(mm->smmu)) {
+    mm->smmu = adlak_os_zalloc(sizeof(struct adlak_mem), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(mm->smmu)) {
         goto err_alloc;
     }
     mm->smmu->size = (size_t)SMMU_IOVA_ADDR_SIZE;
@@ -60,7 +60,7 @@ static void adlak_smmu_unmap_iova_pages(struct adlak_mem *mm, struct adlak_mem_h
 #if ADLAK_DEBUG_SMMU_EN
     AML_LOG_DEBUG("%s", __func__);
 #endif
-    smmu_nr_pages = mm_info->nr_pages * (PAGE_SIZE / SMMU_PAGESIZE);
+    smmu_nr_pages = mm_info->nr_pages * (ADLAK_PAGE_SIZE / SMMU_PAGESIZE);
 
     for (i = 0; i < smmu_nr_pages; ++i) {
         adlak_smmu_tlb_del((struct __adlak_smmu *)mm->padlak->psmmu, iova_addr);
@@ -102,7 +102,7 @@ int adlak_smmu_iova_map(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) 
 
     iova_start_addr = adlak_alloc_from_bitmap_pool(&mm->smmu->bitmap_area, mm_info->req.bytes);
 
-    if (IS_ERR((void *)iova_start_addr)) {
+    if (ADLAK_IS_ERR((void *)iova_start_addr)) {
         AML_LOG_ERR("failed to alloc iova!");
         goto early_exit;
     }
@@ -113,16 +113,16 @@ int adlak_smmu_iova_map(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) 
     mm_info->iova_addr = iova_start_addr;
     iova_addr          = iova_start_addr;
 
-    AML_LOG_DEBUG("iova_addr = 0x%llx, phys_addr[0] = 0x%llx ", (u64)mm_info->iova_addr,
-                  (u64)mm_info->phys_addrs[0]);
+    AML_LOG_DEBUG("iova_addr = 0x%llx, phys_addr[0] = 0x%llx ", (uint64_t)mm_info->iova_addr,
+                  (uint64_t)mm_info->phys_addrs[0]);
 
     for (i = 0; i < mm_info->nr_pages; ++i) {
-        for (j = 0; j < PAGE_SIZE / SMMU_PAGESIZE; ++j) {
+        for (j = 0; j < ADLAK_PAGE_SIZE / SMMU_PAGESIZE; ++j) {
             phys_addr = mm_info->phys_addrs[i] + j * SMMU_PAGESIZE;
 
             if (adlak_smmu_tlb_add(psmmu, iova_addr, phys_addr, SMMU_PAGESIZE)) {
                 AML_LOG_ERR("failed to map iova 0x%lX pa 0x%lX size %lu\n", (uintptr_t)iova_addr,
-                            (uintptr_t)phys_addr, PAGE_SIZE);
+                            (uintptr_t)phys_addr, ADLAK_PAGE_SIZE);
                 goto unmap_pages;
             }
             if (mm_info->req.bytes < (1 << SMMU_TLB2_VA_SHIFT)) {

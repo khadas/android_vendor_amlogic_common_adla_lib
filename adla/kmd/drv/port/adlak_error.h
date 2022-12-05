@@ -22,10 +22,36 @@
 #define __ADLAK_ERROR_H__
 
 /***************************** Include Files *********************************/
+#include "adlak_os_base.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define ADLAK_MAX_ERRNO 4095
+
+#define ADLAK_IS_ERR_VALUE(x) \
+    unlikely((unsigned long)(void *)(x) >= (unsigned long)-ADLAK_MAX_ERRNO)
+
+static inline void *__must_check ADLAK_ERR_PTR(long error) { return (void *)error; }
+
+static inline long __must_check ADLAK_PTR_ERR(__force const void *ptr) { return (long)ptr; }
+
+static inline bool __must_check ADLAK_IS_ERR(__force const void *ptr) {
+    return ADLAK_IS_ERR_VALUE((unsigned long)ptr);
+}
+
+static inline bool __must_check ADLAK_IS_ERR_OR_NULL(__force const void *ptr) {
+    return unlikely(!ptr) || ADLAK_IS_ERR_VALUE((unsigned long)ptr);
+}
+
+static inline int __must_check ADLAK_PTR_ERR_OR_ZERO(__force const void *ptr) {
+    if (ADLAK_IS_ERR(ptr))
+        return ADLAK_PTR_ERR(ptr);
+    else
+        return 0;
+}
+
 typedef enum {
     ADLAK_NONE     = 0,
     ADLAK_SUCCESS  = 0,

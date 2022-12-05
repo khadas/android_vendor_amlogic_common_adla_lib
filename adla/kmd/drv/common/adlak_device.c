@@ -50,7 +50,7 @@
 int adlak_device_init(struct adlak_device *padlak) {
     int ret = 0;
     adlak_os_printf("%s kmd version: %s\n", DEVICE_NAME, ADLAK_VERSION);
-    adlak_os_printf("%s DDK version: 1.4.1\n",DEVICE_NAME);
+    adlak_os_printf("%s DDK version: 1.7.1\n",DEVICE_NAME);
     adlak_os_mutex_init(&padlak->dev_mutex);
     adlak_os_spinlock_init(&padlak->spinlock);
     INIT_LIST_HEAD(&padlak->context_list);
@@ -167,7 +167,7 @@ int adlak_irq_proc(struct adlak_device *const padlak) {
     struct adlak_task *         ptask      = NULL;
     struct adlak_hw_stat *      phw_stat   = NULL;
     struct adlak_dev_inference *pinference = NULL;
-    // cant_sleep();
+    // adlak_cant_sleep();
     ptask = padlak->queue.ptask_sch_cur;
     if (NULL == ptask) {
         return -1;

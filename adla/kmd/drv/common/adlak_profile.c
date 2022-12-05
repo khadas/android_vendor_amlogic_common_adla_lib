@@ -34,8 +34,8 @@
 /************************** Function Prototypes ******************************/
 
 int adlak_profile_start(struct adlak_device *padlak, struct adlak_profile *profile_data,
-                        s32 invoke_start_idx) {
-    s32 offset = 256 * invoke_start_idx;
+                        int32_t invoke_start_idx) {
+    int32_t offset = 256 * invoke_start_idx;
     AML_LOG_DEBUG("%s", __func__);
     ASSERT(padlak);
     ASSERT(profile_data);
@@ -66,7 +66,7 @@ int adlak_profile_stop(struct adlak_device *padlak, struct adlak_profile *profil
         adlak_pm_enable(padlak, false);
         profile_data->finish = adlak_os_ktime_get();
         profile_data->time_elapsed_us =
-            (__u32)adlak_os_ktime_us_delta(profile_data->finish, profile_data->start);
+            (uint32_t)adlak_os_ktime_us_delta(profile_data->finish, profile_data->start);
         AML_LOG_DEBUG("pm used %d ms.", profile_data->time_elapsed_us / 1000);
     }
 

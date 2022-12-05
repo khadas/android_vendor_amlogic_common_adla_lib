@@ -137,84 +137,84 @@ enum ADLAK_DEPENDENCY_MODULE {
 enum ADLAK_PLATFORM_REG_FIXUP_TYPE { ADLAK_REG_FIXUP_TYPE_PW_COMP_FLUSH_MODE = 0 };
 
 struct adlak_submit_dep_fixup {
-    __u32 module;
-    __s32 dep_id;
-    __s32 id_loc;
-    __u32 id_shift;
-    __u32 id_mask;
-    __u32 dep_modes[ADLAK_DEPENDENCY_MODE_COUNT];
-    __s32 mode_loc;
-    __u32 mode_shift;
-    __u32 mode_mask;
+    uint32_t module;
+    int32_t  dep_id;
+    int32_t  id_loc;
+    uint32_t id_shift;
+    uint32_t id_mask;
+    uint32_t dep_modes[ADLAK_DEPENDENCY_MODE_COUNT];
+    int32_t  mode_loc;
+    uint32_t mode_shift;
+    uint32_t mode_mask;
 };
 
 struct adlak_submit_reg_fixup {
 #define MAX_REG_FIXUP_MODES 3
 
-    __u32 type;
-    __s32 loc;
-    __u32 shift;
-    __u32 mask;
-    __u32 unit;
-    __u32 modes[MAX_REG_FIXUP_MODES];
+    uint32_t type;
+    int32_t  loc;
+    uint32_t shift;
+    uint32_t mask;
+    uint32_t unit;
+    uint32_t modes[MAX_REG_FIXUP_MODES];
 };
 struct adlak_submit_addr_fixup {
-    __s32 loc;
-    __u32 shift;
-    __u32 mask;
-    __u32 unit;
-    __u64 addr;
+    int32_t  loc;
+    uint32_t shift;
+    uint32_t mask;
+    uint32_t unit;
+    uint64_t addr;
 };
 
 struct adlak_submit_task {
-    __u32 active_modules;
-    __u32 output_modules;
-    __u32 memory_access_modules;
-    __s32 config_offset;
-    __s32 config_size;
-    __s32 addr_fixup_offset;
-    __s32 addr_fixup_count;
-    __s32 dep_info_offset;
-    __s32 dep_info_count;
-    __s32 reg_fixup_offset;
-    __s32 reg_fixup_count;
-    __s32 start_pwe_flid;
-    __s32 start_pwx_flid;
-    __s32 start_rs_flid;
-    __s32 memory_access_types[12]; /*not used in kmd*/
+    uint32_t active_modules;
+    uint32_t output_modules;
+    uint32_t memory_access_modules;
+    int32_t  config_offset;
+    int32_t  config_size;
+    int32_t  addr_fixup_offset;
+    int32_t  addr_fixup_count;
+    int32_t  dep_info_offset;
+    int32_t  dep_info_count;
+    int32_t  reg_fixup_offset;
+    int32_t  reg_fixup_count;
+    int32_t  start_pwe_flid;
+    int32_t  start_pwx_flid;
+    int32_t  start_rs_flid;
+    int32_t  memory_access_types[12]; /*not used in kmd*/
 };
 
 struct adlak_cmq_buf_info {
     struct adlak_mem_handle *mm_info;
-    u64                      offset;
-    u32                      size;
-    u32                      rpt;
+    uint64_t                 offset;
+    uint32_t                 size;
+    uint32_t                 rpt;
 };
 
 struct adlak_task {
     struct list_head                head;
-    s32                             net_id;
-    s32                             invoke_idx;
+    int32_t                         net_id;
+    int32_t                         invoke_idx;
     int                             state;
-    u32                             flag;  // task_canceled
+    uint32_t                        flag;  // task_canceled
     struct adlak_cmq_buf_info       cmq_buf_info;
     struct adlak_submit_task *      submit_tasks;
     struct adlak_submit_dep_fixup * submit_dep_fixups;
     struct adlak_submit_reg_fixup * submit_reg_fixups;
     struct adlak_submit_addr_fixup *submit_addr_fixups;
-    u8 *                            config;
-    u32                             submit_tasks_num;
-    u32                             dep_fixups_num;
-    u32                             reg_fixups_num;
-    u32                             addr_fixups_num;
-    u32                             config_size;
+    uint8_t *                       config;
+    uint32_t                        submit_tasks_num;
+    uint32_t                        dep_fixups_num;
+    uint32_t                        reg_fixups_num;
+    uint32_t                        addr_fixups_num;
+    uint32_t                        config_size;
     struct adlak_hw_stat            hw_stat;
-    s32                             invoke_start_idx;
-    s32                             invoke_end_idx;
+    int32_t                         invoke_start_idx;
+    int32_t                         invoke_end_idx;
     void *                          padlak;
     struct adlak_context *          context;
-    u32                             time_stamp;
-    u32                             hw_timeout_ms;
+    uint32_t                        time_stamp;
+    uint32_t                        hw_timeout_ms;
 
     struct adlak_profile profilling;
 
@@ -257,7 +257,7 @@ int adlak_submit_patch_and_exec(struct adlak_task *ptask);
 int adlak_wait_until_finished(struct adlak_context *context, struct adlak_get_stat_desc *stat_desc);
 
 #if CONFIG_ADLAK_EMU_EN
-u32 adlak_emu_update_rpt(void);
+uint32_t adlak_emu_update_rpt(void);
 #endif
 
 #ifdef __cplusplus

@@ -56,7 +56,7 @@ int adlak_cma_init(struct device *dev) {
 
 #if CONFIG_ADLAK_MEM_POOL_EN
 void adlak_free_cma_region_nocache(struct adlak_mem *mm) {
-    if (IS_ERR_OR_NULL(mm->mem_pool)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm->mem_pool)) {
         return;
     }
     if (mm->mem_pool->cpu_addr_base) {
@@ -70,40 +70,21 @@ void adlak_free_cma_region_nocache(struct adlak_mem *mm) {
 int adlak_alloc_cma_region_nocache(struct adlak_mem *mm) {
     int ret;
 
-    struct resource res;
-    dma_addr_t      dma_hd = 0;
-    u64             size;
-    void *          vaddr  = NULL;
-    const __be32 *  ranges = NULL;
-    int             nsize;
-    int             try;
-    size_t          size_dec;
+    dma_addr_t dma_hd = 0;
+    uint64_t   size;
+    void *     vaddr = NULL;
+    int        try;
+    size_t     size_dec;
     AML_LOG_DEBUG("%s", __func__);
-
-    /* find a memory-region phandle */
-    mm->res_mem_dev = of_parse_phandle(mm->dev->of_node, "memory-region", 0);
-    if (!mm->res_mem_dev) {
+    //
+    ret = adlak_platform_get_rsv_mem_size(mm->dev, &size);
+    if (ret) {
         goto err;
     }
-    ret = of_address_to_resource(mm->res_mem_dev, 0, &res);
-    if (!ret) {
-        AML_LOG_DEBUG("get cma memory region: [0x%lX, 0x%lX]", (uintptr_t)res.start,
-                      (uintptr_t)res.end);
-        size = res.end - res.start + 1;
-    } else {
-        nsize  = of_n_size_cells(mm->res_mem_dev);
-        ranges = of_get_property(mm->res_mem_dev, "size", NULL);
-        if (!ranges) {
-            AML_LOG_ERR("get cma size failed!\n");
-            goto err;
-        }
-        size = of_read_number(ranges, nsize);
-    }
-    AML_LOG_DEBUG("get cma size=0x%lX", (uintptr_t)size);
     try      = 10;
     size_dec = size / 16;
     while (try--) {
-        vaddr = dma_alloc_coherent(mm->dev, (size_t)size, &dma_hd, GFP_KERNEL);
+        vaddr = dma_alloc_coherent(mm->dev, (size_t)size, &dma_hd, ADLAK_GFP_KERNEL);
         if (!vaddr) {
             AML_LOG_ERR("DMA alloc coherent failed: pa 0x%lX, size = %lu\n", (uintptr_t)dma_hd,
                         (uintptr_t)size);
@@ -116,8 +97,8 @@ int adlak_alloc_cma_region_nocache(struct adlak_mem *mm) {
         goto err;
     }
 
-    mm->mem_pool = adlak_os_zalloc(sizeof(struct adlak_mem_pool_info), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(mm->mem_pool)) {
+    mm->mem_pool = adlak_os_zalloc(sizeof(struct adlak_mem_pool_info), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(mm->mem_pool)) {
         goto err_alloc;
     }
 
@@ -137,7 +118,7 @@ err_alloc:
     dma_free_coherent(mm->dev, size, vaddr, dma_hd);
 err:
     adlak_free_cma_region_nocache(mm);
-    return (-ENOMEM);
+    return (ERR(ENOMEM));
 }
 
 #endif
@@ -145,7 +126,7 @@ err:
 #if (CONFIG_ADLAK_MEM_POOL_EN && defined(CONFIG_ADLAK_USE_RESERVED_MEMORY))
 
 void adlak_unmap_region_nocache(struct adlak_mem *mm) {
-    if (IS_ERR_OR_NULL(mm->mem_pool)) {
+    if (ADLAK_IS_ERR_OR_NULL(mm->mem_pool)) {
         return;
     }
     if (mm->mem_pool->cpu_addr_base) {
@@ -182,8 +163,8 @@ inline int adlak_remap_region_nocache(struct adlak_mem *mm) {
         goto err;
     }
 
-    mm->mem_pool = adlak_os_zalloc(sizeof(struct adlak_mem_pool_info), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(mm->mem_pool)) {
+    mm->mem_pool = adlak_os_zalloc(sizeof(struct adlak_mem_pool_info), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(mm->mem_pool)) {
         goto err_alloc;
     }
 
@@ -217,7 +198,7 @@ static void adlak_os_free_pages(struct page *pages[], int nr_pages) {
 static void adlak_os_free_pages_contiguous(struct page *pages[], int nr_pages) {
     AML_LOG_DEBUG("%s", __func__);
     if (pages[0]) {
-        __free_pages(pages[0], get_order(PAGE_ALIGN(nr_pages * PAGE_SIZE)));
+        __free_pages(pages[0], get_order(ADLAK_PAGE_ALIGN(nr_pages * ADLAK_PAGE_SIZE)));
     }
 }
 
@@ -225,8 +206,8 @@ static int adlak_flush_cache_init(struct adlak_mem *mm, struct adlak_mem_handle 
                                   uint32_t offset, uint32_t size) {
     int              ret        = ERR(NONE);
     struct sg_table *sgt        = NULL;
-    s32              result     = 0;
-    u32              flush_size = ALIGN(size, cache_line_size());
+    int32_t          result     = 0;
+    uint32_t         flush_size = ADLAK_ALIGN(size, cache_line_size());
     AML_LOG_DEBUG("%s", __func__);
 
     switch (mm_info->req.mem_direction) {
@@ -246,7 +227,7 @@ static int adlak_flush_cache_init(struct adlak_mem *mm, struct adlak_mem_handle 
                     cache_line_size());
     }
 
-    mm_info->sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+    mm_info->sgt = kmalloc(sizeof(struct sg_table), ADLAK_GFP_KERNEL);
     if (!mm_info->sgt) {
         AML_LOG_ERR("failed to alloca memory for flush cache handle");
         ret = -1;
@@ -256,7 +237,7 @@ static int adlak_flush_cache_init(struct adlak_mem *mm, struct adlak_mem_handle 
     sgt = (struct sg_table *)mm_info->sgt;
 
     result = sg_alloc_table_from_pages(sgt, (struct page **)mm_info->pages, mm_info->nr_pages,
-                                       offset, flush_size, GFP_KERNEL | __GFP_NOWARN);
+                                       offset, flush_size, ADLAK_GFP_KERNEL | __GFP_NOWARN);
     if (unlikely(result < 0)) {
         AML_LOG_ERR("sg_alloc_table_from_pages failed");
         ret = -1;
@@ -342,14 +323,15 @@ int adlak_os_alloc_discontiguous(struct adlak_mem *mm, struct adlak_mem_handle *
     gfp_t         gfp  = 0;
     AML_LOG_DEBUG("%s", __func__);
 
-    pages = (struct page **)adlak_os_zalloc(sizeof(struct page *) * mm_info->nr_pages, GFP_KERNEL);
+    pages = (struct page **)adlak_os_zalloc(sizeof(struct page *) * mm_info->nr_pages,
+                                            ADLAK_GFP_KERNEL);
     if (!pages) {
         goto err_alloc_pages;
     }
     mm_info->pages = (void *)pages;
 
     phys_addrs =
-        (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, GFP_KERNEL);
+        (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, ADLAK_GFP_KERNEL);
     if (unlikely(!phys_addrs)) {
         goto err_alloc_phys_addrs;
     }
@@ -384,7 +366,7 @@ int adlak_os_alloc_discontiguous(struct adlak_mem *mm, struct adlak_mem_handle *
     }
     mm_info->cpu_addr = cpu_addr;
 
-    AML_LOG_DEBUG("%s: PA=0x%llx,VA_kernel=0x%lX", __FUNCTION__, (u64)phys_addrs[0],
+    AML_LOG_DEBUG("%s: PA=0x%llx,VA_kernel=0x%lX", __FUNCTION__, (uint64_t)phys_addrs[0],
                   (uintptr_t)cpu_addr);
 
     mm_info->phys_addr = -1;  // the phys is not contiguous
@@ -429,20 +411,21 @@ int adlak_os_alloc_contiguous(struct adlak_mem *mm, struct adlak_mem_handle *mm_
 
     AML_LOG_DEBUG("%s", __func__);
 
-    pages = (struct page **)adlak_os_zalloc(sizeof(struct page *) * mm_info->nr_pages, GFP_KERNEL);
+    pages = (struct page **)adlak_os_zalloc(sizeof(struct page *) * mm_info->nr_pages,
+                                            ADLAK_GFP_KERNEL);
     if (!pages) {
         goto err_alloc_pages;
     }
     mm_info->pages = (void *)pages;
 
     phys_addrs =
-        (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, GFP_KERNEL);
+        (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, ADLAK_GFP_KERNEL);
     if (!phys_addrs) {
         goto err_alloc_phys_addrs;
     }
     mm_info->phys_addrs = phys_addrs;
 
-    order = get_order(PAGE_ALIGN(size));
+    order = get_order(ADLAK_PAGE_ALIGN(size));
     if (order >= MAX_ORDER) {
         AML_LOG_WARN("contiguous alloc contiguous memory order is bigger than MAX, %d >= %d\n",
                      order, MAX_ORDER);
@@ -461,7 +444,7 @@ int adlak_os_alloc_contiguous(struct adlak_mem *mm, struct adlak_mem_handle *mm_
     AML_LOG_DEBUG("page_continue=0x%lX", (uintptr_t)page_continue);
     phys_addrs[0] = page_to_phys(page_continue);
     for (i = 0; i < mm_info->nr_pages; ++i) {
-        phys_addrs[i] = phys_addrs[0] + i * PAGE_SIZE;  // get physical addr
+        phys_addrs[i] = phys_addrs[0] + i * ADLAK_PAGE_SIZE;  // get physical addr
         pages[i]      = phys_to_page(phys_addrs[i]);
     }
 
@@ -516,17 +499,16 @@ int adlak_os_attach_ext_mem_phys(struct adlak_mem *mm, struct adlak_mem_handle *
 
     mm_info->phys_addrs = NULL;
     phys_addrs =
-        (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, GFP_KERNEL);
+        (phys_addr_t *)adlak_os_zalloc(sizeof(phys_addr_t) * mm_info->nr_pages, ADLAK_GFP_KERNEL);
     if (!phys_addrs) {
         goto err_alloc_phys_addrs;
     }
 
     mm_info->phys_addr = phys_addr;
     for (i = 0; i < mm_info->nr_pages; ++i) {
-        phys_addrs[i] = phys_addr + (i * PAGE_SIZE);  // get physical addr
-        AML_LOG_DEBUG("phys_addrs[%d]=0x%llx", i, (u64)(uintptr_t)phys_addrs[i]);
+        phys_addrs[i] = phys_addr + (i * ADLAK_PAGE_SIZE);  // get physical addr
+        AML_LOG_DEBUG("phys_addrs[%d]=0x%llx", i, (uint64_t)(uintptr_t)phys_addrs[i]);
     }
-
     mm_info->pages      = NULL;
     mm_info->phys_addrs = phys_addrs;
     mm_info->cpu_addr   = cpu_addr;
@@ -565,10 +547,10 @@ int adlak_os_mmap(struct adlak_mem *mm, struct adlak_mem_handle *mm_info, void *
             AML_LOG_DEBUG("%s discontiguous phys_addr = 0x%lX", __func__,
                           (uintptr_t)mm_info->phys_addr);
             for (i = 0; i < mm_info->nr_pages; ++i) {
-                addr = vma->vm_start + i * PAGE_SIZE;
+                addr = vma->vm_start + i * ADLAK_PAGE_SIZE;
                 pfn  = page_to_pfn(((struct page **)(mm_info->pages))[i]);
-                if (remap_pfn_range(vma, addr, pfn, PAGE_SIZE, vma->vm_page_prot)) {
-                    return -EAGAIN;
+                if (remap_pfn_range(vma, addr, pfn, ADLAK_PAGE_SIZE, vma->vm_page_prot)) {
+                    return ERR(EAGAIN);
                 }
             }
         }
@@ -651,12 +633,12 @@ int adlak_os_mmap2userspace(struct adlak_mem *mm, struct adlak_mem_handle *mm_in
     struct vm_area_struct *vma            = NULL;
     AML_LOG_DEBUG("%s", __func__);
 
-    if (IS_ERR_OR_NULL(mm_info)) goto exit;
+    if (ADLAK_IS_ERR_OR_NULL(mm_info)) goto exit;
     addr_userspace = vm_mmap(NULL, 0L, mm_info->req.bytes, PROT_READ | PROT_WRITE,
                              MAP_SHARED | MAP_NORESERVE, 0);
 
     AML_LOG_DEBUG("vm_mmap addr = 0x%lX", addr_userspace);
-    if (IS_ERR_OR_NULL((void *)addr_userspace)) {
+    if (ADLAK_IS_ERR_OR_NULL((void *)addr_userspace)) {
         ret = ERR(ENOMEM);
         AML_LOG_ERR("Unable to mmap process text, errno %d\n", ret);
         addr_userspace = 0;

@@ -144,8 +144,8 @@ static int adlak_reg_check(struct adlak_device *padlak, int reg) {
     return -1;
 }
 static int adlak_print_reg_info(struct io_region *region, int offset, char *buf, size_t buf_size) {
-    u32  val;
-    char reg_name[64];
+    uint32_t val;
+    char     reg_name[64];
     adlak_get_reg_name(offset, reg_name, sizeof(reg_name));
     val = adlak_read32(region, offset);
     return adlak_os_snprintf(buf, buf_size, "0x%-*x%-*s0x%08x", 6, offset, 22, reg_name, val);
@@ -239,7 +239,7 @@ static ssize_t reg_store(struct device *dev, struct device_attribute *attr, cons
     struct adlak_device *padlak = dev_get_drvdata(dev);
 
     ASSERT(padlak);
-    buff = kstrdup(buf, GFP_KERNEL);
+    buff = kstrdup(buf, ADLAK_GFP_KERNEL);
     p    = buff;
     for (argc = 0; argc < 4; argc++) {
         para = strsep(&p, " ");

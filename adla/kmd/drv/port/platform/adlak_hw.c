@@ -54,7 +54,7 @@ static void adlak_parser_start(struct io_region *region) {
     }
 }
 
-static int adlak_parser_cmq_set(struct io_region *region, u32 wpt) {
+static int adlak_parser_cmq_set(struct io_region *region, uint32_t wpt) {
     int ret = 0;
     AML_LOG_DEBUG("%s", __func__);
     if (wpt % 16 != 0) {
@@ -96,7 +96,7 @@ void adlak_pm_reset(void *padlak) {
     adlak_write32(region, REG_ADLAK_0XF0, d.all);
 }
 
-void adlak_pm_config(void *padlak, u32 addr, u32 buf_size, u32 wpt) {
+void adlak_pm_config(void *padlak, uint32_t addr, uint32_t buf_size, uint32_t wpt) {
     struct io_region *region = NULL;
     AML_LOG_DEBUG("%s", __func__);
     ASSERT(padlak);
@@ -105,9 +105,9 @@ void adlak_pm_config(void *padlak, u32 addr, u32 buf_size, u32 wpt) {
     adlak_write32(region, REG_ADLAK_0XF8, buf_size);
 }
 
-u32 adlak_pm_get_stat(void *padlak) {
+uint32_t adlak_pm_get_stat(void *padlak) {
     struct io_region *region = NULL;
-    u32               val    = 0;
+    uint32_t          val    = 0;
     AML_LOG_DEBUG("%s", __func__);
     ASSERT(padlak);
     region = ((struct adlak_device *)padlak)->hw_res.preg;
@@ -119,7 +119,7 @@ u32 adlak_pm_get_stat(void *padlak) {
 int adlak_pm_fush_until_empty(void *padlak) {
     struct io_region * region = NULL;
     HAL_ADLAK_PM_STS_S d;
-    u32                cnt;
+    uint32_t           cnt;
     AML_LOG_DEBUG("%s", __func__);
     ASSERT(padlak);
     region = ((struct adlak_device *)padlak)->hw_res.preg;
@@ -152,7 +152,7 @@ static int adlak_hal_soft_reset(void *data) {
     struct io_region *   region = NULL;
     HAL_ADLAK_AB_CTL_S   d_ab;
     HAL_ADLAK_SWRST_S    d;
-    u32                  cnt;
+    uint32_t             cnt;
     AML_LOG_DEBUG("%s", __func__);
 
     region = padlak->hw_res.preg;
@@ -210,10 +210,10 @@ static int adlak_hal_hard_reset(void *data) {
     return 0;
 }
 
-static u32 adlak_hal_get_reg(void *data, u32 offset) {
+static uint32_t adlak_hal_get_reg(void *data, uint32_t offset) {
     struct adlak_device *padlak = (struct adlak_device *)data;
     struct io_region *   region = padlak->hw_res.preg;
-    u32                  val;
+    uint32_t             val;
     val = adlak_read32(region, offset);
     AML_LOG_DEBUG("read reg [0x%X] = 0x%X", offset, val);
     return val;
@@ -226,7 +226,7 @@ int adlak_hal_set_mmu(void *data, bool enable) {
     // struct adlak_workqueue *pwq    = &padlak->queue;
     struct io_region *  region = padlak->hw_res.preg;
     HAL_ADLAK_SMMU_EN_S d;
-    u64                 smmu_entry;
+    uint64_t            smmu_entry;
     AML_LOG_DEBUG("%s", __func__);
 
     if (enable) {
@@ -241,8 +241,8 @@ int adlak_hal_set_mmu(void *data, bool enable) {
         smmu_entry = ((smmu_entry >> 5) << 12);
         AML_LOG_INFO("SMMU Enable, and set smmu_entry=0x%lX", (uintptr_t)smmu_entry);
 
-        adlak_write32(region, REG_ADLAK_0XC4, (u32)(smmu_entry & (0xFFFFFFFF)));
-        adlak_write32(region, REG_ADLAK_0XC8, (u32)((smmu_entry >> 32) & (0xFFFFFFFF)));
+        adlak_write32(region, REG_ADLAK_0XC4, (uint32_t)(smmu_entry & (0xFFFFFFFF)));
+        adlak_write32(region, REG_ADLAK_0XC8, (uint32_t)((smmu_entry >> 32) & (0xFFFFFFFF)));
         adlak_hal_smmu_cache_invalid(data, 0);
     } else {
         AML_LOG_INFO("SMMU Disable");
@@ -255,7 +255,7 @@ void adlak_hal_smmu_cache_invalid(void *data, dma_addr_t iova) {
     // struct adlak_hw_info *   phw_info = (struct adlak_hw_info *)padlak->hw_info;
     struct io_region *       region = padlak->hw_res.preg;
     HAL_ADLAK_SMMU_INV_CTL_S d;
-    u32                      cnt;
+    uint32_t                 cnt;
     //  AML_LOG_DEBUG( "%s", __func__);
 
     d.all = 0;
@@ -268,9 +268,9 @@ void adlak_hal_smmu_cache_invalid(void *data, dma_addr_t iova) {
         d.bitc.smmu_invalid_rdy = 1;
         d.bitc.smmu_invalid_one = 0x0B;
     }
-    if (ADLAK_HW_STAT_UNKOWN != padlak->hw_stat.stat) {
-        adlak_write32(region, REG_ADLAK_0XD8, (u32)iova);
-        adlak_write32(region, REG_ADLAK_0XD4, (u32)d.all);
+    if (ADLAK_HW_STAT_UNKNOWN != padlak->hw_stat.stat) {
+        adlak_write32(region, REG_ADLAK_0XD8, (uint32_t)iova);
+        adlak_write32(region, REG_ADLAK_0XD4, (uint32_t)d.all);
     }
 
     /*2. Wait until smmu_invalid complete*/
@@ -288,7 +288,7 @@ void adlak_hal_smmu_cache_invalid(void *data, dma_addr_t iova) {
     } while (d.bitc.smmu_invalid_rdy == 1);
 }
 
-void adlak_parser_set_pend_timer(struct io_region *region, u32 time) {
+void adlak_parser_set_pend_timer(struct io_region *region, uint32_t time) {
     HAL_ADLAK_PS_PEND_EN_S d;
     AML_LOG_DEBUG("%s", __func__);
     d.bitc.ps_pend_timer_en = 0;
@@ -298,13 +298,13 @@ void adlak_parser_set_pend_timer(struct io_region *region, u32 time) {
     adlak_write32(region, REG_ADLAK_0X84, d.all);
     adlak_write32(region, REG_ADLAK_0X88, time);
 }
-void adlak_parser_set_apb_timeout(struct io_region *region, u32 time) {
+void adlak_parser_set_apb_timeout(struct io_region *region, uint32_t time) {
     // HAL_ADLAK_PS_PEND_EN_S d;
     AML_LOG_DEBUG("%s", __func__);
     adlak_write32(region, REG_ADLAK_0X4, time);
 }
 
-void adlak_hal_enable(void *data, u32 en) {
+void adlak_hal_enable(void *data, uint32_t en) {
     struct adlak_device *padlak = (struct adlak_device *)data;
     HAL_ADLAK_ADLAK_EN_S d;
     AML_LOG_DEBUG("%s", __func__);
@@ -316,7 +316,7 @@ void adlak_hal_enable(void *data, u32 en) {
     adlak_write32(padlak->hw_res.preg, REG_ADLAK_0X24, d.all);
 }
 
-void adlak_hal_irq_enable(void *data, u32 en) {
+void adlak_hal_irq_enable(void *data, uint32_t en) {
     struct adlak_device * padlak   = (struct adlak_device *)data;
     struct adlak_hw_info *phw_info = (struct adlak_hw_info *)padlak->hw_info;
     AML_LOG_DEBUG("%s", __func__);
@@ -330,7 +330,7 @@ void adlak_hal_irq_enable(void *data, u32 en) {
     }
 }
 
-void adlak_hal_irq_clear(void *data, u32 clr_bits) {
+void adlak_hal_irq_clear(void *data, uint32_t clr_bits) {
     struct adlak_device *padlak = (struct adlak_device *)data;
     // struct adlak_hw_info *phw_info = (struct adlak_hw_info *)padlak->hw_info;
     AML_LOG_DEBUG("%s", __func__);
@@ -378,7 +378,7 @@ static void adlak_all_regs_dump(struct adlak_hw_stat *phw_stat) {
     }
 }
 
-u32 adlak_get_hw_status(struct adlak_hw_stat *phw_stat) {
+uint32_t adlak_get_hw_status(struct adlak_hw_stat *phw_stat) {
     struct io_region *region = NULL;
     AML_LOG_DEBUG("%s", __func__);
     ASSERT(phw_stat);
@@ -453,7 +453,7 @@ void adlak_status_dump(struct adlak_hw_stat *phw_stat) {
     }
 }
 
-u32 adlak_hal_get_ps_rpt(void *data) {
+uint32_t adlak_hal_get_ps_rpt(void *data) {
 #if CONFIG_ADLAK_EMU_EN
     struct adlak_device *padlak = (struct adlak_device *)data;
     return padlak->cmq_buf_info.cmq_rd_offset;
@@ -518,9 +518,9 @@ static int adlak_hal_set_autoclock(void *data, uint32_t en) {
         adlak_write32(region, REG_ADLAK_0X120, 0x0);
     } else {
         adlak_write32(region, REG_ADLAK_0X28, 0x3FFF);
-        adlak_write32(region, REG_ADLAK_0X120, 0xF1);
-        // adlak_write32(region, REG_ADLAK_0X120, 0xFF);
-        // adlak_write32(region, REG_ADLAK_0X2C, 0x0A08);
+        // adlak_write32(region, REG_ADLAK_0X120, 0xF1);
+        adlak_write32(region, REG_ADLAK_0X120, 0xFF);
+        adlak_write32(region, REG_ADLAK_0X2C, 0x0608);
     }
     return 0;
 }
@@ -833,7 +833,7 @@ int adlak_hw_init(void *data) {
     struct adlak_hw_info *phw_info;
 
     AML_LOG_DEBUG("%s", __func__);
-    phw_info        = adlak_os_zalloc(sizeof(struct adlak_hw_info), GFP_KERNEL);
+    phw_info        = adlak_os_zalloc(sizeof(struct adlak_hw_info), ADLAK_GFP_KERNEL);
     padlak->hw_info = (void *)phw_info;
     adlak_reg_lst_init(padlak->hw_info);
 
@@ -884,7 +884,7 @@ void adlak_hw_deinit(void *data) {
         adlak_os_free(padlak->hw_info);
     }
 }
-int adlak_hal_submit(void *data, u32 wpt) {
+int adlak_hal_submit(void *data, uint32_t wpt) {
     int                  ret    = ERR(NONE);
     struct adlak_device *padlak = (struct adlak_device *)data;
     adlak_parser_cmq_set(padlak->hw_res.preg, wpt);

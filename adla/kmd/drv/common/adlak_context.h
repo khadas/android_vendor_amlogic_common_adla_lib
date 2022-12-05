@@ -54,8 +54,8 @@ struct adlak_context {
     struct list_head     net_list;
     adlak_os_mutex_t     context_mutex;
     uintptr_t            wait;  // wait_queue_head_t *
-    u32                  state;
-    u32                  invoke_cnt;
+    uint32_t             state;
+    uint32_t             invoke_cnt;
 
 #define CONTEXT_STATE_USED (1 << 2)
 #define CONTEXT_STATE_INITED (1 << 1)

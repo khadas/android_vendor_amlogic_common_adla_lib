@@ -28,7 +28,7 @@
 #include "adlak_platform_config.h"
 #include "adlak_profile.h"
 #include "adlak_submit.h"
-#include <linux/regulator/consumer.h>
+
 /************************** Constant Definitions *****************************/
 
 /**************************** Type Definitions *******************************/
@@ -65,7 +65,7 @@ struct regulator            *regulator_nna;
  *
  * @brief         :remove operation registered to platfom_driver struct
  *        This function will be called while the module is unloading.
- * @pdev[in]     :platform devide struct pointer
+ * @pdev[in]     :platform device struct pointer
  * @return        :0 if successful; others if failed.
  *
  ******************************************************************************/
@@ -93,7 +93,7 @@ static int adlak_create_cdev(struct adlak_device *padlak) {
     if (!padlak) {
         return ERR(ENOMEM);
     }
-    id = ida_simple_get(&adlak_ida, 0, ADLAK_MAX_DEVICES, GFP_KERNEL);
+    id = ida_simple_get(&adlak_ida, 0, ADLAK_MAX_DEVICES, ADLAK_GFP_KERNEL);
     if (id < 0) {
         return id;
     }
@@ -117,7 +117,7 @@ static int adlak_create_cdev(struct adlak_device *padlak) {
     sysdev = device_create(padlak->class, padlak->dev, padlak->devt, padlak, DEVICE_NAME "%d", id);
     if (IS_ERR(sysdev)) {
         AML_LOG_ERR("device register failed\n");
-        ret = PTR_ERR(sysdev);
+        ret = ADLAK_PTR_ERR(sysdev);
         goto err_remove_chardev;
     }
 
@@ -143,7 +143,7 @@ static int adlak_create_misc(struct adlak_device *padlak) {
 
     if (!padlak) return ERR(EINVAL);
 
-    padlak->misc = devm_kzalloc(padlak->dev, sizeof(struct miscdevice), GFP_KERNEL);
+    padlak->misc = devm_kzalloc(padlak->dev, sizeof(struct miscdevice), ADLAK_GFP_KERNEL);
     if (!padlak->misc) {
         AML_LOG_ERR("no memory in allocating misc struct");
         return ERR(ENOMEM);
@@ -208,6 +208,7 @@ int adlak_voltage_uninit(void *data) {
     AML_LOG_INFO("ADLA KMD voltage uninit success ");
     return ret;
 }
+
 static int adlak_platform_remove(struct platform_device *pdev) {
     int                  ret    = 0;
     struct adlak_device *padlak = platform_get_drvdata(pdev);
@@ -245,7 +246,7 @@ static int adlak_platform_remove(struct platform_device *pdev) {
  * @brief probe operation registered to platfom_driver struct
  *        This function will be called while the module is loading.
  *
- * @param pdev: platform devide struct pointer
+ * @param pdev: platform device struct pointer
  * @return 0 if successful; others if failed.
  */
 static int adlak_platform_probe(struct platform_device *pdev) {
@@ -253,7 +254,7 @@ static int adlak_platform_probe(struct platform_device *pdev) {
     struct adlak_device *padlak = NULL;
     AML_LOG_DEBUG("%s", __func__);
 
-    padlak = adlak_os_zalloc(sizeof(struct adlak_device), GFP_KERNEL);
+    padlak = adlak_os_zalloc(sizeof(struct adlak_device), ADLAK_GFP_KERNEL);
     if (!padlak) {
         ret = ERR(ENOMEM);
         goto err_alloc_data;
@@ -319,6 +320,7 @@ err_get_res:
 err_alloc_data:
     return ret;
 }
+
 
 static int adlak_platform_sys_suspend(struct platform_device *pdev,pm_message_t state) {
     int                  ret    = 0;
@@ -404,11 +406,11 @@ static int adlak_class_init(void) {
     adlak_class = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(adlak_class)) {
         AML_LOG_ERR("class_create failed for adla.");
-        ret = PTR_ERR(adlak_class);
+        ret = ADLAK_PTR_ERR(adlak_class);
         goto cleanup;
     }
     if (adlak_create_class_file(adlak_class)) {
-        ret = PTR_ERR(adlak_class);
+        ret = ADLAK_PTR_ERR(adlak_class);
         goto cleanup;
     }
     return 0;
@@ -443,13 +445,13 @@ static int __init adlak_module_init(void) {
     ret = adlak_platform_device_init();
     if (0 > ret) {
         AML_LOG_ERR("Soc platform driver init failed.");
-        return -ENODEV;
+        return ERR(ENODEV);
     }
 #endif
     ret = platform_driver_register(&adlak_platform_driver);
     if (0 > ret) {
         AML_LOG_ERR("platform driver register failed.");
-        return -ENODEV;
+        return ERR(ENODEV);
     }
     AML_LOG_DEBUG("platform_driver_register successed.");
     return 0;

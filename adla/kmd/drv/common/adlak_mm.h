@@ -60,7 +60,7 @@ int adlak_flush_cache(struct adlak_device *padlak, struct adlak_mem_handle *mm_i
 
 int adlak_invalid_cache(struct adlak_device *padlak, struct adlak_mem_handle *mm_info);
 
-int adlak_mem_mmap(struct adlak_context *context, void *const vma, u64 iova);
+int adlak_mem_mmap(struct adlak_context *context, void *const vma, uint64_t iova);
 
 #ifdef __cplusplus
 }

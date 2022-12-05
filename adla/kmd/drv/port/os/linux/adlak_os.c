@@ -40,24 +40,24 @@ void *adlak_os_malloc(size_t size, uint32_t flag) {
 #if ADLAK_DEBUG
     void *addr = NULL;
     dbg_mem_alloc_count_kmd += 1;
-    addr = kmalloc(size, flag | GFP_KERNEL);
+    addr = kmalloc(size, flag | ADLAK_GFP_KERNEL);
     AML_LOG_DEBUG("alloc: dbg_mem_alloc_count_kmd = %d, addr = %p\n", dbg_mem_alloc_count_kmd,
                   addr);
     return addr;
 #else
-    return kmalloc(size, flag | GFP_KERNEL);
+    return kmalloc(size, flag | ADLAK_GFP_KERNEL);
 #endif
 }
 void *adlak_os_zalloc(size_t size, uint32_t flag) {
 #if ADLAK_DEBUG
     void *addr = NULL;
     dbg_mem_alloc_count_kmd += 1;
-    addr = kzalloc(size, flag | GFP_KERNEL);
+    addr = kzalloc(size, flag | ADLAK_GFP_KERNEL);
     AML_LOG_DEBUG("alloc: dbg_mem_alloc_count_kmd = %d, addr = %p\n", dbg_mem_alloc_count_kmd,
                   addr);
     return addr;
 #else
-    return kzalloc(size, flag | GFP_KERNEL);
+    return kzalloc(size, flag | ADLAK_GFP_KERNEL);
 #endif
 }
 
@@ -71,6 +71,40 @@ void adlak_os_free(void *ptr) {
     AML_LOG_DEBUG("free: dbg_mem_alloc_count_kmd = %d, addr = %p\n", dbg_mem_alloc_count_kmd, ptr);
 #endif
     kfree(ptr);
+}
+
+void *adlak_os_vmalloc(size_t size, uint32_t flag) {
+#if ADLAK_DEBUG
+    void *addr = NULL;
+    dbg_mem_alloc_count_kmd += 1;
+    addr = vmalloc(size);
+    AML_LOG_DEBUG("alloc: dbg_mem_alloc_count_kmd = %d, addr = %p\n", dbg_mem_alloc_count_kmd,
+                  addr);
+    return addr;
+#else
+    return vmalloc(size);
+#endif
+}
+
+void *adlak_os_vzalloc(size_t size, uint32_t flag) {
+#if ADLAK_DEBUG
+    void *addr = NULL;
+    dbg_mem_alloc_count_kmd += 1;
+    addr = vzalloc(size);
+    AML_LOG_DEBUG("alloc: dbg_mem_alloc_count_kmd = %d, addr = %p\n", dbg_mem_alloc_count_kmd,
+                  addr);
+    return addr;
+#else
+    return vzalloc(size);
+#endif
+}
+
+void adlak_os_vfree(void *ptr) {
+#if ADLAK_DEBUG
+    dbg_mem_alloc_count_kmd -= 1;
+    AML_LOG_DEBUG("free: dbg_mem_alloc_count_kmd = %d, addr = %p\n", dbg_mem_alloc_count_kmd, ptr);
+#endif
+    vfree(ptr);
 }
 
 void *adlak_os_memset(void *dest, int ch, size_t count) { return memset(dest, ch, count); }
@@ -161,8 +195,8 @@ int adlak_os_mutex_init(adlak_os_mutex_t *mutex) {
     adlak_os_mutex_inner_t *pmutex_inner = NULL;
     PRINT_FUNC_NAME;
     pmutex_inner =
-        (adlak_os_mutex_inner_t *)adlak_os_malloc(sizeof(adlak_os_mutex_inner_t), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(pmutex_inner)) {
+        (adlak_os_mutex_inner_t *)adlak_os_malloc(sizeof(adlak_os_mutex_inner_t), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(pmutex_inner)) {
         *mutex = NULL;
         return ERR(ENOMEM);
     }
@@ -189,10 +223,10 @@ int adlak_os_mutex_lock(adlak_os_mutex_t *mutex) {
     adlak_os_mutex_inner_t *pmutex_inner = (adlak_os_mutex_inner_t *)*mutex;
     PRINT_FUNC_NAME;
     if (pmutex_inner != NULL) {
-        if (mutex_lock_interruptible(&pmutex_inner->mutex_hd)) {
-            return ERR(EFAULT);
-        }
-        // mutex_lock(&pmutex_inner->mutex_hd);
+        // if (mutex_lock_interruptible(&pmutex_inner->mutex_hd)) {
+        //     return ERR(EFAULT);
+        // }
+        mutex_lock(&pmutex_inner->mutex_hd);
         return ERR(NONE);
     }
     return ERR(EINVAL);
@@ -216,9 +250,9 @@ typedef struct adlak_os_spinlock_inner {
 int adlak_os_spinlock_init(adlak_os_spinlock_t *spinlock) {
     adlak_os_spinlock_inner_t *pspinlock_inner = NULL;
     PRINT_FUNC_NAME;
-    pspinlock_inner =
-        (adlak_os_spinlock_inner_t *)adlak_os_malloc(sizeof(adlak_os_spinlock_inner_t), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(pspinlock_inner)) {
+    pspinlock_inner = (adlak_os_spinlock_inner_t *)adlak_os_malloc(
+        sizeof(adlak_os_spinlock_inner_t), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(pspinlock_inner)) {
         *spinlock = NULL;
         return ERR(ENOMEM);
     }
@@ -269,8 +303,8 @@ int adlak_os_sema_init(adlak_os_sema_t *sem, unsigned int max_count, unsigned in
     adlak_os_sema_inner_t *psema_inner = NULL;
     PRINT_FUNC_NAME;
     psema_inner =
-        (adlak_os_sema_inner_t *)adlak_os_malloc(sizeof(adlak_os_sema_inner_t), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(psema_inner)) {
+        (adlak_os_sema_inner_t *)adlak_os_malloc(sizeof(adlak_os_sema_inner_t), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(psema_inner)) {
         *sem = NULL;
         return ERR(ENOMEM);
     }
@@ -367,16 +401,16 @@ int adlak_os_thread_create(adlak_os_thread_t *pthrd, int(*func)(void *), void *a
     adlak_os_thread_inner_t *pthread_inner = NULL;
 
     PRINT_FUNC_NAME;
-    pthread_inner =
-        (adlak_os_thread_inner_t *)adlak_os_malloc(sizeof(adlak_os_thread_inner_t), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(pthread_inner)) {
+    pthread_inner = (adlak_os_thread_inner_t *)adlak_os_malloc(sizeof(adlak_os_thread_inner_t),
+                                                               ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(pthread_inner)) {
         AML_LOG_ERR("malloc for thread_internal_t fail!\n");
         return ERR(ENOMEM);
     }
     pthrd->thrd_should_stop = 0;
     pthread_inner->kthread =
         kthread_create((int (*)(void *))func, (void *)arg, "adlak_kthread_%d", thread_num);
-    if (IS_ERR_OR_NULL(pthread_inner->kthread)) {
+    if (ADLAK_IS_ERR_OR_NULL(pthread_inner->kthread)) {
         adlak_os_free(pthread_inner);
         pthrd->handle = (void *)pthread_inner;
         AML_LOG_DEBUG("thread create fail!\n");
@@ -428,14 +462,12 @@ typedef struct adlak_os_timer_inner {
 
 int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(struct timer_list *), void *param) {
     adlak_os_timer_inner_t *ptimer_inner = NULL;
-
     PRINT_FUNC_NAME;
     ptimer_inner =
-        (adlak_os_timer_inner_t *)adlak_os_malloc(sizeof(adlak_os_timer_inner_t), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(ptimer_inner)) {
+        (adlak_os_timer_inner_t *)adlak_os_malloc(sizeof(adlak_os_timer_inner_t), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(ptimer_inner)) {
         return ERR(ENOMEM);
     }
-
     timer_setup(&ptimer_inner->timer, (void (*)(struct timer_list *))func, 0);
     *ptim = ptimer_inner;
     AML_LOG_DEBUG("timer_init success!\n");
@@ -489,8 +521,8 @@ int adlak_os_timer_add(adlak_os_timer_t *ptim, unsigned int timeout_ms) {
 int adlak_to_umd_sinal_init(uintptr_t *hd) {
     wait_queue_head_t *wait_inner = NULL;
     PRINT_FUNC_NAME;
-    wait_inner = (wait_queue_head_t *)adlak_os_malloc(sizeof(wait_queue_head_t), GFP_KERNEL);
-    if (IS_ERR_OR_NULL(wait_inner)) {
+    wait_inner = (wait_queue_head_t *)adlak_os_malloc(sizeof(wait_queue_head_t), ADLAK_GFP_KERNEL);
+    if (ADLAK_IS_ERR_OR_NULL(wait_inner)) {
         return ERR(ENOMEM);
     }
 

@@ -38,10 +38,10 @@ extern "C" {
 
 /**************************Type Definition and Structure**********************/
 
-static inline u32 adlak_read32(struct io_region *region, __IO offset) {
+static inline uint32_t adlak_read32(struct io_region *region, __IO offset) {
 #if !(CONFIG_ADLAK_EMU_EN)
 #if ADLAK_HW_DEBUG_EN
-    u32 val;
+    uint32_t val;
 #endif
     ASSERT(region);
     ASSERT(region->va_kernel);
@@ -65,9 +65,9 @@ static inline void adlak_write32(struct io_region *region, __IO offset, unsigned
 #if !(CONFIG_ADLAK_EMU_EN)
 #if ADLAK_HW_DEBUG_EN
     printk(KERN_ERR "[ADLAK DEBUG] write reg[0x%lX] = [0x%X].", offset, data);
-    writel((u32)data, (void __iomem *)((__IO)(region->va_kernel) + offset));
+    writel((uint32_t)data, (void __iomem *)((__IO)(region->va_kernel) + offset));
 #else
-    return writel((u32)data, (void __iomem *)((__IO)(region->va_kernel) + offset));
+    return writel((uint32_t)data, (void __iomem *)((__IO)(region->va_kernel) + offset));
 #endif
 #endif
 }

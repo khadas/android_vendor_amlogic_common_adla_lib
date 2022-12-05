@@ -46,7 +46,7 @@ int adlak_create_context(void *adlak_device, struct adlak_context **p_context) {
         AML_LOG_ERR("invalid input context or common args to be null!");
         goto end;
     }
-    context = adlak_os_zalloc(sizeof(struct adlak_context), GFP_KERNEL);
+    context = adlak_os_zalloc(sizeof(struct adlak_context), ADLAK_GFP_KERNEL);
     if (!context) {
         return ERR(ENOMEM);
     }
@@ -124,8 +124,9 @@ int adlak_destroy_context(struct adlak_device *padlak, struct adlak_context *con
     ret = adlak_invoke_del_all(padlak, net_id);
     if (0 != ret) {
         AML_LOG_WARN("net [%d] is busy,so destroy delay!", net_id);
-        if (ERR(EINTR) == adlak_os_sema_take_timeout(context->ctx_idle, 3000)) {//TODO the 3000 is temp val
-            AML_LOG_WARN("sema[stat_idle] take timeout!");
+        if (ERR(EINTR) == adlak_os_sema_take(context->ctx_idle)) {
+            AML_LOG_ERR("sema[stat_idle] take err!");
+            ASSERT(0);
         }
     }
     {
@@ -142,10 +143,9 @@ int adlak_destroy_context(struct adlak_device *padlak, struct adlak_context *con
 
         adlak_os_mutex_lock(&padlak->dev_mutex);
         list_del(&context->head); /*del from context list*/
-        adlak_os_free(context);  // destroy context
+        adlak_os_free(context);   // destroy context
         AML_LOG_DEBUG("net_id [%d] destroyed", net_id);
         adlak_os_mutex_unlock(&padlak->dev_mutex);
-
     }
 
 end:
@@ -156,6 +156,7 @@ struct context_buf *find_buffer_by_desc(struct adlak_context *context, void *pmm
     struct context_buf *     target_buf   = NULL;
     struct context_buf *     context_buf  = NULL;
     struct list_head *       node         = NULL;
+    struct list_head *       node_tmp     = NULL;
     struct adlak_mem_handle *pmm_info_tmp = NULL;
     AML_LOG_DEBUG("%s", __func__);
     if ((!context) || (!pmm_info)) {
@@ -163,7 +164,7 @@ struct context_buf *find_buffer_by_desc(struct adlak_context *context, void *pmm
         goto end;
     }
 
-    list_for_each_prev(node, &context->sbuf_list) {
+    list_for_each_prev_safe(node, node_tmp, &context->sbuf_list) {
         /*Due to the special application scenario, the target can be found faster by looking from
          * the back to the front*/
         context_buf = list_entry(node, struct context_buf, head);
@@ -191,7 +192,7 @@ int adlak_context_attach_buf(struct adlak_context *context, void *mm_info) {
         goto end;
     }
 
-    new_sbuf = adlak_os_zalloc(sizeof(struct context_buf), GFP_KERNEL);
+    new_sbuf = adlak_os_zalloc(sizeof(struct context_buf), ADLAK_GFP_KERNEL);
     if (!new_sbuf) {
         AML_LOG_ERR("alloc context buf failed!");
 
@@ -250,10 +251,10 @@ int adlak_destroy_all_context(struct adlak_device *padlak) {
 }
 
 int adlak_context_flush_cache(struct adlak_context *context) {
-    struct context_buf *sbuf = NULL;
+    struct context_buf *sbuf = NULL, *sbuf_tmp = NULL;
 
     AML_LOG_DEBUG("%s", __func__);
-    list_for_each_entry(sbuf, &context->sbuf_list, head) {
+    list_for_each_entry_safe(sbuf, sbuf_tmp, &context->sbuf_list, head) {
         if (sbuf) {
             adlak_flush_cache(context->padlak, sbuf->mm_info);
         }
@@ -262,10 +263,10 @@ int adlak_context_flush_cache(struct adlak_context *context) {
 }
 
 int adlak_context_invalid_cache(struct adlak_context *context) {
-    struct context_buf *sbuf = NULL;
+    struct context_buf *sbuf = NULL, *sbuf_tmp = NULL;
 
     AML_LOG_DEBUG("%s", __func__);
-    list_for_each_entry(sbuf, &context->sbuf_list, head) {
+    list_for_each_entry_safe(sbuf, sbuf_tmp, &context->sbuf_list, head) {
         if (sbuf) {
             adlak_invalid_cache(context->padlak, sbuf->mm_info);
         }

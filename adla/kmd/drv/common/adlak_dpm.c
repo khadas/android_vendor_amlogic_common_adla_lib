@@ -32,16 +32,16 @@
 
 struct adlak_power_info {
     struct adlak_device *padlak;
-    s32                  invoke_task_cnt;
-    s32                  cnt_elapsed;
-    s32                  cnt_idel;
-    s32                  cnt_busy;
-    s32                  freq_cfg_idx;
-    s32                  freq_cfg_list[2][CONFIG_ADLAK_FREQ_ADJUST_NO];  // 0:core freq; 1:axi freq
-    s32                  core_freq_cur;
-    s32                  axi_freq_cur;
-    s32                  core_freq_expect;
-    s32                  axi_freq_expect;
+    int32_t              invoke_task_cnt;
+    int32_t              cnt_elapsed;
+    int32_t              cnt_idel;
+    int32_t              cnt_busy;
+    int32_t              freq_cfg_idx;
+    int32_t              freq_cfg_list[2][CONFIG_ADLAK_FREQ_ADJUST_NO];  // 0:core freq; 1:axi freq
+    int32_t              core_freq_cur;
+    int32_t              axi_freq_cur;
+    int32_t              core_freq_expect;
+    int32_t              axi_freq_expect;
 };
 
 /***************** Macros (Inline Functions) Definitions *********************/
@@ -104,8 +104,9 @@ void adlak_dpm_stage_adjust(void *data, enum ADLAK_DPM_STRATEGY strategy) {
                 pdpm_info->cnt_idel++;
                 // adlak_freq_decrease
                 pdpm_info->freq_cfg_idx++;
-                if (pdpm_info->freq_cfg_idx >= (ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1)) {
-                    pdpm_info->freq_cfg_idx = (ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1);
+                if (pdpm_info->freq_cfg_idx >=
+                    (ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1)) {
+                    pdpm_info->freq_cfg_idx = (ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1);
                 }
                 break;
             case ADLAK_DPM_STRATEGY_MAX:
@@ -115,7 +116,7 @@ void adlak_dpm_stage_adjust(void *data, enum ADLAK_DPM_STRATEGY strategy) {
                 pdpm_info->cnt_busy     = 0;
                 break;
             case ADLAK_DPM_STRATEGY_MIN:
-                pdpm_info->freq_cfg_idx = ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1;
+                pdpm_info->freq_cfg_idx = ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1;
                 pdpm_info->cnt_elapsed  = 0;
                 pdpm_info->cnt_idel     = 0;
                 pdpm_info->cnt_busy     = 0;
@@ -153,7 +154,7 @@ void adlak_dpm_clk_update(void *data, int core_freq, int axi_freq) {
     AML_LOG_DEBUG("%s axi_freq=%d, core_freq=%d", __func__, axi_freq, core_freq);
 
     pdpm_info = (struct adlak_power_info *)padlak->pdpm;
-    if (IS_ERR_OR_NULL(pdpm_info)) {
+    if (ADLAK_IS_ERR_OR_NULL(pdpm_info)) {
         return;
     }
     pdpm_info->core_freq_cur = core_freq;
@@ -162,15 +163,15 @@ void adlak_dpm_clk_update(void *data, int core_freq, int axi_freq) {
     pdpm_info->core_freq_cur = core_freq;
     pdpm_info->axi_freq_cur  = axi_freq;
     /*update the index of freq_cfg*/
-    for (i = 0; i < ARRAY_SIZE(pdpm_info->freq_cfg_list[0]); i++) {
+    for (i = 0; i < ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]); i++) {
         if (pdpm_info->freq_cfg_list[0][i] == core_freq) {
             pdpm_info->freq_cfg_idx = i;
             break;
         }
     }
-    if (i >= ARRAY_SIZE(pdpm_info->freq_cfg_list[0])) {
+    if (i >= ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0])) {
         if (0 == core_freq) {
-            pdpm_info->freq_cfg_idx = (ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1);
+            pdpm_info->freq_cfg_idx = (ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1);
         } else {
             pdpm_info->freq_cfg_idx = 0;
         }
@@ -199,7 +200,7 @@ int adlak_dpm_init(void *data) {
     struct adlak_power_info *pdpm_info;
     struct adlak_device *    padlak = (struct adlak_device *)data;
     AML_LOG_DEBUG("%s", __func__);
-    pdpm_info = adlak_os_zalloc(sizeof(struct adlak_power_info), GFP_KERNEL);
+    pdpm_info = adlak_os_zalloc(sizeof(struct adlak_power_info), ADLAK_GFP_KERNEL);
     if (!pdpm_info) {
         ret = ERR(ENOMEM);
         goto err;
@@ -210,7 +211,7 @@ int adlak_dpm_init(void *data) {
     AML_LOG_DEBUG("dpm_period_set =  %d ms", padlak->dpm_period_set);
     // init freq list
 
-    for (i = 0; i < ARRAY_SIZE(pdpm_info->freq_cfg_list[0]); i++) {
+    for (i = 0; i < ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]); i++) {
         switch (i) {
             case 0:
                 pdpm_info->freq_cfg_list[0][i] = padlak->clk_core_freq_set;
@@ -239,9 +240,9 @@ int adlak_dpm_init(void *data) {
     pdpm_info->core_freq_expect = pdpm_info->freq_cfg_list[0][pdpm_info->freq_cfg_idx];
     pdpm_info->axi_freq_expect  = pdpm_info->freq_cfg_list[1][pdpm_info->freq_cfg_idx];
     pdpm_info->core_freq_cur =
-        pdpm_info->freq_cfg_list[0][(ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1)];
+        pdpm_info->freq_cfg_list[0][(ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1)];
     pdpm_info->axi_freq_cur =
-        pdpm_info->freq_cfg_list[1][(ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1)];
+        pdpm_info->freq_cfg_list[1][(ADLAK_ARRAY_SIZE(pdpm_info->freq_cfg_list[0]) - 1)];
 
     AML_LOG_DEBUG("%s axi_freq=%d, core_freq=%d", __func__, pdpm_info->axi_freq_cur,
                   pdpm_info->core_freq_cur);
@@ -257,7 +258,7 @@ int adlak_dmp_get_efficiency(void *data) {
 #if CONFIG_ADLAK_DPM_EN
     struct adlak_device *    padlak = (struct adlak_device *)data;
     struct adlak_power_info *pdpm_info;
-    s32                      efficiency;
+    int32_t                  efficiency;
     AML_LOG_DEBUG("%s", __func__);
     pdpm_info = (struct adlak_power_info *)padlak->pdpm;
     if (!pdpm_info) {

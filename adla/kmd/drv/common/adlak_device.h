@@ -36,15 +36,15 @@ extern "C" {
 struct adlak_hardware_res {
     void *adlak_reg_va; /*mapped cpu virtual address for AHB register memory base address*/
     resource_size_t adlak_reg_pa;    /*the AHB register physical base address*/
-    u64             adlak_reg_size;  /*the size of AHB register memory*/
+    uint64_t        adlak_reg_size;  /*the size of AHB register memory*/
     resource_size_t adlak_sram_pa;   /*the AHB AXI SRAM physical base address*/
-    u64             adlak_sram_size; /*the size of AXI SRAM memory*/
+    uint64_t        adlak_sram_size; /*the size of AXI SRAM memory*/
     int32_t         sram_wrap;
     resource_size_t adlak_resmem_pa;   /*the reserved memory physical base address*/
-    u64             adlak_resmem_size; /*the size of reserved memory*/
+    uint64_t        adlak_resmem_size; /*the size of reserved memory*/
 
     struct io_region *preg;
-    u32               irqline;
+    uint32_t          irqline;
 };
 
 struct adlak_device_caps {
@@ -53,7 +53,7 @@ struct adlak_device_caps {
 };
 
 struct adlak_proc_info {
-    u32 irq_status;
+    uint32_t irq_status;
 };
 
 struct adlak_device {
@@ -79,9 +79,9 @@ struct adlak_device {
     struct adlak_proc_info    proc;
     struct list_head          context_list;
     void *                    hw_info;
-    u64                       smmu_entry;
+    uint64_t                  smmu_entry;
     void *                    psmmu;
-    u32                       hw_timeout_ms;  // unit is system tick
+    uint32_t                  hw_timeout_ms;  // unit is system tick
     int                       dependency_mode;
     int                       all_task_num;
     int                       all_task_num_max;
@@ -97,34 +97,33 @@ struct adlak_device {
     int is_reset;
 
     struct _cmq_buf_info {
-        u32 size;       /*max size per invoke*/
-        u32 total_size; /*cmq_total_size = 2 * cmq_size */
+        uint32_t size;       /*max size per invoke*/
+        uint32_t total_size; /*cmq_total_size = 2 * cmq_size */
 
-        u32                      cmq_wr_offset;
-        u32                      cmq_rd_offset;
+        uint32_t                 cmq_wr_offset;
+        uint32_t                 cmq_rd_offset;
         struct adlak_mem_handle *cmq_mm_info;
 
     } cmq_buf_info;
     struct _hw_stat {
-#define ADLAK_HW_STAT_UNKOWN (0)
+#define ADLAK_HW_STAT_UNKNOWN (0)
 #define ADLAK_HW_STAT_INITED (1)
 #define ADLAK_HW_STAT_ERR (2)
 #define ADLAK_HW_STAT_NEED_RESET (3)
-        u32 stat; /**/
-#define ADLAK_PS_STAT_UNKOWN (0)
+        uint32_t stat; /**/
+#define ADLAK_PS_STAT_UNKNOWN (0)
 #define ADLAK_PS_STAT_RESETED (1)
 #define ADLAK_PS_STAT_STOP (2)
 #define ADLAK_PS_STAT_RUN (3)
 #define ADLAK_PS_STAT_ERR (4)
-        u32 paser_stat;
+        uint32_t paser_stat;
     } hw_stat;
     adlak_os_sema_t paser_refresh;
     bool            smmu_en;
 
-    int   dpm_en;
-    int   dpm_period_set;
-    void *pdpm;  // dynamic power management
-
+    int             dpm_en;
+    int             dpm_period_set;
+    void            *pdpm;  // dynamic power management
     bool            regulator_nn_en;
     uint32_t        nn_voltage;
 };

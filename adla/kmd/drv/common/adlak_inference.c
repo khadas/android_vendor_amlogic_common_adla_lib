@@ -147,7 +147,7 @@ int adlak_dev_inference_cb(void *args) {
         device_state = ADLAK_DEVICE_IDLE;
     }
     while (!pthrd->thrd_should_stop) {
-        // might_sleep();
+        // adlak_might_sleep();
         AML_LOG_DEBUG("%s\n", __func__);
         do {
             adlak_wq_check_ready_queue(pwq);
@@ -169,12 +169,12 @@ int adlak_dev_inference_cb(void *args) {
                 }
                 AML_LOG_DEBUG("nothing need to do!\n");
                 if (ERR(EINTR) == adlak_os_sema_take(pwq->wk_update)) {
+
                 } else {
                     wq_idel_cnt = 0;
                     if (pwq->dev_infrence.dmp_timeout == 1)
                     {
                         adlak_dpm_stage_adjust(padlak, ADLAK_DPM_STRATEGY_MIN);
-
                     }
                     else
                     {
@@ -295,7 +295,7 @@ static void adlak_emu_irq_cb(struct timer_list *t) {
     struct adlak_task *         ptask      = NULL;
 
     AML_LOG_DEBUG("%s\n", __func__);
-    cant_sleep();
+    adlak_cant_sleep();
     pinference                      = &g_adlak_pwq->dev_infrence;
     ptask                           = g_adlak_ptask_sch_cur;
     phw_stat                        = &ptask->hw_stat;
@@ -322,9 +322,7 @@ static void adlak_dpm_timer_cb(struct timer_list *t) {
         pwq->dev_infrence.dmp_timeout = 1;
         adlak_os_sema_give(pwq->wk_update);
     }
-
 }
-
 /**
  * @brief inference on adlak hardware
  *
@@ -404,7 +402,7 @@ err:
     return 0;
 }
 
-static void adlak_irq_status_decode(u32 state) {
+static void adlak_irq_status_decode(uint32_t state) {
     if (state & ADLAK_IRQ_MASK_PARSER_STOP_CMD) {
         AML_LOG_INFO(" [0]: parser stop for command");
     }
@@ -443,7 +441,7 @@ static void adlak_irq_status_decode(u32 state) {
     }
 }
 
-static void adlak_status_report_decode(u32 state) {
+static void adlak_status_report_decode(uint32_t state) {
     HAL_ADLAK_REPORT_STATUS_S d;
     d.all = state;
 

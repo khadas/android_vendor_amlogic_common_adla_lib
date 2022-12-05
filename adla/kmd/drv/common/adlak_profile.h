@@ -40,18 +40,18 @@ extern "C" {
 struct adlak_profiler {
     struct adlak_mem_handle *profiler_mm_info;
     //
-    u32 iova;
-    u32 bufer_size;
-    int wpt;
-    int rpt;
+    uint32_t iova;
+    uint32_t bufer_size;
+    int      wpt;
+    int      rpt;
 };
 struct adlak_profile {
-    __s32            profile_en;  // profilling enable
-    __u64            profile_iova;
-    __u32            profile_buf_size;
-    __u32            profile_wpt;  // profilling write point
-    __u32            profile_rpt;  // profilling read point
-    __u32            time_elapsed_us;
+    int32_t          profile_en;  // profilling enable
+    uint64_t         profile_iova;
+    uint32_t         profile_buf_size;
+    uint32_t         profile_wpt;  // profilling write point
+    uint32_t         profile_rpt;  // profilling read point
+    uint32_t         time_elapsed_us;
     adlak_os_ktime_t start;
     adlak_os_ktime_t finish;
 };
@@ -59,7 +59,7 @@ struct adlak_profile {
 /************************** Function Prototypes ******************************/
 
 int adlak_profile_start(struct adlak_device *padlak, struct adlak_profile *profile_data,
-                        s32 invoke_start_idx);
+                        int32_t invoke_start_idx);
 
 int adlak_profile_stop(struct adlak_device *padlak, struct adlak_profile *profile_data);
 

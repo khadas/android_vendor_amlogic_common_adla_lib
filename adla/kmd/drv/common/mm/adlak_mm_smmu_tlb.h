@@ -40,7 +40,7 @@ struct __adlak_smmu_tlb_info {
 };
 
 struct __adlak_smmu {
-    u64                          smmu_entry;
+    uint64_t                     smmu_entry;
     struct __adlak_smmu_tlb_info tlb_l1;
     struct __adlak_smmu_tlb_info tlb_l2[SMMU_TLB1_ENTRY_COUNT];
     struct __adlak_smmu_tlb_info tlb_l3[SMMU_TLB1_ENTRY_COUNT][SMMU_TLB2_ENTRY_COUNT_2M];
