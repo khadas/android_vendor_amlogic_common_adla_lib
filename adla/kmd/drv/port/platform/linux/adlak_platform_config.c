@@ -56,7 +56,7 @@ static int adlak_axi_freq = 800000000;
 
 static int adlak_core_freq = 800000000;
 
-static int adlak_cmd_queue_size = 512 * 1024;
+static int adlak_cmd_queue_size = 1024 * 1024;
 
 static int adlak_sch_time_max_ms = 10;
 
