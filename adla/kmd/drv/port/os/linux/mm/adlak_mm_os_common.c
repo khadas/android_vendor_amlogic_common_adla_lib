@@ -227,7 +227,7 @@ static int adlak_flush_cache_init(struct adlak_mem *mm, struct adlak_mem_handle 
                     cache_line_size());
     }
 
-    mm_info->sgt = kmalloc(sizeof(struct sg_table), ADLAK_GFP_KERNEL);
+    mm_info->sgt = adlak_os_malloc(sizeof(struct sg_table), ADLAK_GFP_KERNEL);
     if (!mm_info->sgt) {
         AML_LOG_ERR("failed to alloca memory for flush cache handle");
         ret = -1;

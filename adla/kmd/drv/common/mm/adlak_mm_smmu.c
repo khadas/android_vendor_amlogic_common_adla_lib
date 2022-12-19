@@ -82,7 +82,7 @@ void adlak_smmu_iova_unmap(struct adlak_mem *mm, struct adlak_mem_handle *mm_inf
     AML_LOG_DEBUG("%s", __func__);
 #endif
 
-    if (SMMU_IOVA_ADDR_SIZE >= mm_info->iova_addr) {
+    if (SMMU_IOVA_ADDR_SIZE > mm_info->iova_addr) {
         adlak_smmu_unmap_iova_pages(mm, mm_info);
     }
 }

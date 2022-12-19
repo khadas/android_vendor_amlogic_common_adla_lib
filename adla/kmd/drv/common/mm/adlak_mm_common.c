@@ -568,6 +568,7 @@ struct adlak_mem_handle *adlak_mm_alloc(struct adlak_mem *mm, struct adlak_buf_r
     if (unlikely(!mm_info)) {
         goto end;
     }
+    mm_info->iova_addr         = SMMU_IOVA_ADDR_SIZE;  // init as invalid value
     mm_info->req.bytes         = ADLAK_PAGE_ALIGN(pbuf_req->bytes);
     mm_info->req.mem_direction = pbuf_req->ret_desc.mem_direction;
 
@@ -638,6 +639,7 @@ struct adlak_mem_handle *adlak_mm_attach(struct adlak_mem *            mm,
     if (unlikely(!mm_info)) {
         goto end;
     }
+    mm_info->iova_addr    = SMMU_IOVA_ADDR_SIZE;  // init as invalid value
     mm_info->req.bytes    = size;
     mm_info->req.mem_type = ADLAK_ENUM_MEMTYPE_INNER_CONTIGUOUS;
     // set as uncacheable for exttern memory

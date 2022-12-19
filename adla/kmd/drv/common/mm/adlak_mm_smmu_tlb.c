@@ -359,7 +359,7 @@ static int adlak_smmu_tlb_deinit(struct adlak_mem *mm) {
     struct __adlak_smmu *psmmu = padlak->psmmu;
     AML_LOG_DEBUG("%s", __func__);
 
-    if (!psmmu) {
+    if (psmmu) {
         if (psmmu->tlb_l1.mm_info) {
             adlak_mm_free(mm, psmmu->tlb_l1.mm_info);
         }
