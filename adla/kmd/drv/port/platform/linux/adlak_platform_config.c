@@ -66,10 +66,18 @@ static int adlak_log_level = -1;
 
 #include "./adlak_platform_module_param.c"
 /**************************** Type Definitions *******************************/
+typedef enum {
+    Regulator_None = 0,
+    Regulator_GPIO,
+    Regulator_PWM
+} regulator_type_t;
 
 /***************** Macros (Inline Functions) Definitions *********************/
+#define GPIO_REGULATOR_NAME      "vdd_npu"
+#define PWM_REGULATOR_NAME       "vddnpu"
 
 /************************** Variable Definitions *****************************/
+struct regulator            *regulator_nna;
 
 /************************** Function Prototypes ******************************/
 
@@ -210,14 +218,83 @@ static bool adlak_smmu_available(struct device *dev) {
 #endif
     return has_smmu;
 }
-static bool adlak_regulator_nn_available(struct device *dev) {
-    bool regulator_nna = false;
+
+int adlak_voltage_init(void *data) {
+    int ret = 0;
+    struct adlak_device *padlak = (struct adlak_device *)data;
+
+    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_None) {
+        AML_LOG_INFO("ADLA KMD voltage regulator disable\n");
+        return ret;
+    }
+    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_GPIO) {
+        regulator_nna = devm_regulator_get(padlak->dev, GPIO_REGULATOR_NAME);
+    }
+    else if ((regulator_type_t)padlak->regulator_nn_type == Regulator_PWM) {
+        regulator_nna = devm_regulator_get(padlak->dev, PWM_REGULATOR_NAME);
+    }
+    if (IS_ERR(regulator_nna)) {
+        AML_LOG_ERR("regulator_get vddnpu fail!\n");
+    }
+
+    ret = regulator_enable(regulator_nna);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_enable error\n");
+    }
+    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_PWM) {
+        ret = regulator_set_voltage(regulator_nna, 900000, 900000);
+        if (ret < 0)
+            AML_LOG_ERR("regulator_set_voltage %d Error\n",900000);
+        else
+            AML_LOG_INFO("regulator_set_voltage %d OK\n", 900000);
+    }
+
+    AML_LOG_INFO("ADLA KMD voltage init success ");
+
+    return ret;
+}
+
+int adlak_voltage_uninit(void *data) {
+    int ret = 0;
+    struct adlak_device *padlak = (struct adlak_device *)data;
+
+    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_None) {
+        AML_LOG_INFO("ADLA KMD voltage regulator disable\n");
+        return ret;
+    }
+
+    if (regulator_nna == NULL)
+    {
+        AML_LOG_ERR("regulator supply is NULL\n");
+        return -1;
+    }
+    ret = regulator_disable(regulator_nna);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_disable error\n");
+    }
+
+    devm_regulator_put(regulator_nna);
+
+    AML_LOG_INFO("ADLA KMD voltage uninit success ");
+    return ret;
+}
+
+static regulator_type_t adlak_regulator_nn_available(struct device *dev) {
 #ifdef CONFIG_OF
-    if (of_property_read_bool(dev->of_node, "regulator_nn")) {
-        regulator_nna = true;
+    const char * regulator_name = NULL;
+    if (of_property_read_string(dev->of_node, "regulator_nn", &regulator_name)) {
+        return Regulator_None;
+    }
+    if (!strcmp(regulator_name, "gpio_regulator")) {
+       return Regulator_GPIO;
+    }
+    if (!strcmp(regulator_name, "pwm_regulator")) {
+       return Regulator_PWM;
     }
 #endif
-    return regulator_nna;
+    return Regulator_None;
 }
 int adlak_platform_get_resource(void *data) {
     int                  ret    = 0;
@@ -234,11 +311,24 @@ int adlak_platform_get_resource(void *data) {
         AML_LOG_INFO("smmu not available.\n");
     }
 
-    padlak->regulator_nn_en = adlak_regulator_nn_available(padlak->dev);
-    if (padlak->regulator_nn_en) {
-        AML_LOG_INFO("regulator nna available.\n");
-    } else {
-        AML_LOG_INFO("regulator nna not available.\n");
+    padlak->regulator_nn_type = (int)adlak_regulator_nn_available(padlak->dev);
+    switch ((regulator_type_t)padlak->regulator_nn_type)
+    {
+    case Regulator_None:
+        AML_LOG_INFO("regulator nna disable.\n");
+        printk("regulator nna disable.\n");
+        break;
+    case Regulator_GPIO:
+        AML_LOG_INFO("regulator nna by gpio.\n");
+        printk("regulator nna by gpio.\n");
+        break;
+    case Regulator_PWM:
+        AML_LOG_INFO("regulator nna by pwm.\n");
+        printk("regulator nna by pwm.\n");
+        break;
+    default:
+        AML_LOG_ERR("regulator nna type %d invalid.\n", padlak->regulator_nn_type);
+        break;
     }
 
     /* get ADLAK IO */
