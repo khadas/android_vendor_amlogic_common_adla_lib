@@ -77,6 +77,9 @@ int adlak_mem_alloc_request(struct adlak_context *context, struct adlak_buf_req 
             goto err_attach;
         }
     }
+    if (padlak->mm->use_smmu) {
+        context->smmu_tlb_updated = 1;
+    }
     context->mem_alloced += mm_info->req.bytes;
 
     padlak->mm->usage.mem_alloced_umd += mm_info->req.bytes;
@@ -140,6 +143,9 @@ int adlak_ext_mem_attach_request(struct adlak_context *        context,
         AML_LOG_DEBUG("this extern memory type is physical.");
 
         mm_info = adlak_mm_attach(padlak->mm, pbuf_req);
+        if (padlak->mm->use_smmu) {
+            context->smmu_tlb_updated = 1;
+        }
     } else if (1 == pbuf_req->buf_type)  //  dma handle addr type
     {
         //  AML_LOG_DEBUG("this extern memory type is dma handle.");
@@ -211,8 +217,8 @@ int adlak_ext_mem_dettach_request(struct adlak_context *        context,
     pmm_info_hd = (struct adlak_mem_handle *)adlak_context_dettach_buf(context, (void *)&mm_info);
     if (NULL == pmm_info_hd) {
         AML_LOG_ERR("dettach mm_info to context failed!");
-        goto err;
         ret = -1;
+        goto err;
     }
     AML_LOG_DEFAULT("iova_addr=0x%lX, ", (uintptr_t)mm_info.iova_addr);
     AML_LOG_DEFAULT("size=%lu KByte \n", (uintptr_t)(pmm_info_hd->req.bytes / 1024));
@@ -299,7 +305,7 @@ int adlak_cmq_buf_init(struct adlak_device *padlak) {
     AML_LOG_DEBUG("%s", __func__);
     AML_LOG_INFO("alloc buffer for cmq,size=0x%08x", padlak->cmq_buf_info.total_size);
     buf_req.bytes             = padlak->cmq_buf_info.total_size;
-    buf_req.ret_desc.mem_type = ADLAK_ENUM_MEMTYPE_CONTIGUOUS | ADLAK_ENUM_MEMTYPE_INNER;
+    buf_req.ret_desc.mem_type = ADLAK_ENUM_MEMTYPE_INNER;
     /*In order to avoid constantly sync the cache of cmq, it is recommended that cmq use
      * uncache buffer*/
     //  buf_req.ret_desc.mem_type      = buf_req.ret_desc.mem_type | ADLAK_ENUM_MEMTYPE_CACHEABLE;
@@ -341,6 +347,7 @@ int adlak_mem_init(struct adlak_device *padlak) {
     }
     ret = adlak_cmq_buf_init(padlak);
     if (ret) {
+        adlak_mem_deinit(padlak);
         goto end;
     }
 

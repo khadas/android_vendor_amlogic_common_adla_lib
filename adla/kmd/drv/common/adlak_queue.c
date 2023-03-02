@@ -41,33 +41,27 @@
 /*****************************************************************************/
 
 #include "adlak_inference.c"
-void adlak_wq_globalid_backup(struct adlak_device *padlak) {
-    struct adlak_workqueue *pwq = &padlak->queue;
-    adlak_os_memcpy((void *)&pwq->id_backup, (void *)&pwq->id_cur, sizeof(pwq->id_backup));
-}
-void adlak_wq_globalid_rollback(struct adlak_device *padlak) {
-    struct adlak_workqueue *pwq = &padlak->queue;
-    adlak_os_memcpy((void *)&pwq->id_cur, (void *)&pwq->id_backup, sizeof(pwq->id_backup));
-}
 
 int adlak_queue_init(struct adlak_device *padlak) {
     struct adlak_workqueue *pwq = &padlak->queue;
     AML_LOG_DEBUG("%s", __func__);
 
     INIT_LIST_HEAD(&pwq->pending_list);
-    INIT_LIST_HEAD(&pwq->ready_list);
     INIT_LIST_HEAD(&pwq->scheduled_list);
     INIT_LIST_HEAD(&pwq->finished_list);
     adlak_os_mutex_init(&pwq->wq_mutex);
     adlak_os_sema_init(&pwq->wk_update, 1, 0);
 
-    adlak_os_sema_init(&padlak->paser_refresh, 1, 0);
-
     adlak_os_mutex_lock(&pwq->wq_mutex);
     adlak_queue_reset(padlak);
 
     adlak_os_mutex_unlock(&pwq->wq_mutex);
-
+#ifdef CONFIG_ADLAK_DEBUG_RESET_ID
+    adlak_os_printf("debug: reset dependency id enable\n");
+#endif
+#ifdef CONFIG_ADLAK_DEBUG_SOFT_RESET
+    adlak_os_printf("debug: soft reset enable\n");
+#endif
     return 0;
 }
 int adlak_queue_reset(struct adlak_device *padlak) {
@@ -76,23 +70,14 @@ int adlak_queue_reset(struct adlak_device *padlak) {
     // clear schedule list
     // adlak_clear_sch_list(padlak);
 
-    // move ready task to pending list
-    adlak_move_ready_to_pendding_list(padlak);
-
     pwq->sched_num     = 0;
     pwq->sched_num_max = ADLAK_SCHEDULE_LIST_MAX;
-    pwq->ready_num     = 0;
-    pwq->ready_num_max = ADLAK_RADY_LIST_MAX;
 
     adlak_os_memset((void *)&pwq->id_cur, 0, sizeof(pwq->id_cur));
-    adlak_os_memset((void *)&pwq->id_backup, 0, sizeof(pwq->id_backup));
-    pwq->id_cur.global_id_pwe    = -1;
-    pwq->id_cur.global_id_pwx    = -1;
-    pwq->id_cur.global_id_rs     = -1;
-    pwq->id_backup.global_id_pwe = -1;
-    pwq->id_backup.global_id_pwx = -1;
-    pwq->id_backup.global_id_rs  = -1;
-    pwq->ptask_sch_cur           = NULL;
+    pwq->id_cur.global_id_pwe = -1;
+    pwq->id_cur.global_id_pwx = -1;
+    pwq->id_cur.global_id_rs  = -1;
+    pwq->ptask_sch_cur        = NULL;
 
     return 0;
 }
@@ -118,7 +103,6 @@ int adlak_queue_deinit(struct adlak_device *padlak) {
 
     adlak_os_mutex_lock(&pwq->wq_mutex);
     adlak_invoke_list_del(&pwq->pending_list);
-    adlak_invoke_list_del(&pwq->ready_list);
     adlak_invoke_list_del(&pwq->scheduled_list);
     adlak_invoke_list_del(&pwq->finished_list);
 
@@ -126,7 +110,6 @@ int adlak_queue_deinit(struct adlak_device *padlak) {
 
     adlak_os_mutex_destroy(&pwq->wq_mutex);
     adlak_os_sema_destroy(&pwq->wk_update);
-    adlak_os_sema_destroy(&padlak->paser_refresh);
 
     return 0;
 }
@@ -226,17 +209,6 @@ int adlak_debug_invoke_list_dump(struct adlak_device *padlak, uint32_t debug) {
                              12, "invoke_id", 20, "invoke_start_id", 20, "invoke_end_id", 12,
                              "state", 12, "flag");
     ret += print_task_list(&pwq->pending_list, buf + ret, buf_size - ret);
-    if (debug) {
-        AML_LOG_DEBUG("%s\n", buf);
-    } else {
-        adlak_os_printf("%s\n", buf);
-    }
-
-    ret = adlak_os_snprintf(buf, buf_size, "\nready list:\n");
-    ret += adlak_os_snprintf(buf + ret, buf_size - ret, "%-*s%-*s%-*s%-*s%-*s%-*s\n", 12, "net_id",
-                             12, "invoke_id", 20, "invoke_start_id", 20, "invoke_end_id", 12,
-                             "state", 12, "flag");
-    ret += print_task_list(&pwq->ready_list, buf + ret, buf_size - ret);
     if (debug) {
         AML_LOG_DEBUG("%s\n", buf);
     } else {

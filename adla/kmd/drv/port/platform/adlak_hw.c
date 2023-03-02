@@ -47,11 +47,9 @@ static void adlak_hal_get_revision(void *data);
 static void adlak_parser_start(struct io_region *region) {
     HAL_ADLAK_PS_CTRL_S d;
     AML_LOG_DEBUG("%s", __func__);
-    d.all = adlak_read32(region, REG_ADLAK_0X50);
-    if (0 == d.bitc.ps_start) {
-        d.bitc.ps_start = 1;
-        adlak_write32(region, REG_ADLAK_0X50, d.all);
-    }
+    d.all           = 0;
+    d.bitc.ps_start = 1;
+    adlak_write32(region, REG_ADLAK_0X50, d.all);
 }
 
 static int adlak_parser_cmq_set(struct io_region *region, uint32_t wpt) {
@@ -190,8 +188,6 @@ static int adlak_hal_soft_reset(void *data) {
     d.bitc.adlak_swrst = 1;
     adlak_write32(region, REG_ADLAK_0X20, d.all);
 
-    adlak_os_msleep(1);
-
     d.bitc.adlak_swrst = 0;
     adlak_write32(region, REG_ADLAK_0X20, d.all);
     return 0;
@@ -215,7 +211,7 @@ static uint32_t adlak_hal_get_reg(void *data, uint32_t offset) {
     struct io_region *   region = padlak->hw_res.preg;
     uint32_t             val;
     val = adlak_read32(region, offset);
-    AML_LOG_DEBUG("read reg [0x%X] = 0x%X", offset, val);
+    // AML_LOG_DEBUG("read reg [0x%X] = 0x%X", offset, val);
     return val;
 }
 
@@ -268,10 +264,8 @@ void adlak_hal_smmu_cache_invalid(void *data, dma_addr_t iova) {
         d.bitc.smmu_invalid_rdy = 1;
         d.bitc.smmu_invalid_one = 0x0B;
     }
-    if (ADLAK_HW_STAT_UNKNOWN != padlak->hw_stat.stat) {
-        adlak_write32(region, REG_ADLAK_0XD8, (uint32_t)iova);
-        adlak_write32(region, REG_ADLAK_0XD4, (uint32_t)d.all);
-    }
+    adlak_write32(region, REG_ADLAK_0XD8, (uint32_t)iova);
+    adlak_write32(region, REG_ADLAK_0XD4, (uint32_t)d.all);
 
     /*2. Wait until smmu_invalid complete*/
     cnt = 0;
@@ -369,12 +363,12 @@ void adlak_hal_get_all_regs(struct adlak_hw_stat *phw_stat) {
 static void adlak_all_regs_dump(struct adlak_hw_stat *phw_stat) {
     int  idx;
     char reg_name[64];
-    AML_LOG_ERR("%s", __func__);
+    adlak_os_printf("%s", __func__);
     for (idx = 0; idx < sizeof(phw_stat->hw_info->reg_lst) / sizeof(phw_stat->hw_info->reg_lst[0]);
          idx++) {
         adlak_get_reg_name(phw_stat->hw_info->reg_lst[idx], reg_name, sizeof(reg_name));
-        AML_LOG_ERR("0x%-*x%-*s0x%08x", 6, phw_stat->hw_info->reg_lst[idx], 22, reg_name,
-                    phw_stat->regs_stat[idx]);
+        adlak_os_printf("0x%-*x%-*s0x%08x", 6, phw_stat->hw_info->reg_lst[idx], 22, reg_name,
+                        phw_stat->regs_stat[idx]);
     }
 }
 
@@ -469,13 +463,13 @@ int adlak_hal_set_cmq(void *data) {
 
     AML_LOG_DEBUG("cmq_addr=0x%lX,size=0x%lX",
                   (uintptr_t)padlak->cmq_buf_info.cmq_mm_info->iova_addr,
-                  (uintptr_t)padlak->cmq_buf_info.cmq_mm_info->req.bytes);
+                  (uintptr_t)padlak->cmq_buf_info.total_size);
     if (padlak->cmq_buf_info.cmq_mm_info->iova_addr > 0xFFFFFFFF) {
         AML_LOG_ERR("The address space of command queue must be in (0 - 4G)! ");
         ASSERT(0);
     }
     adlak_write32(region, REG_ADLAK_0X64, padlak->cmq_buf_info.cmq_mm_info->iova_addr);
-    adlak_write32(region, REG_ADLAK_0X68, padlak->cmq_buf_info.cmq_mm_info->req.bytes);
+    adlak_write32(region, REG_ADLAK_0X68, padlak->cmq_buf_info.total_size);
     return 0;
 }
 
@@ -518,7 +512,6 @@ static int adlak_hal_set_autoclock(void *data, uint32_t en) {
         adlak_write32(region, REG_ADLAK_0X120, 0x0);
     } else {
         adlak_write32(region, REG_ADLAK_0X28, 0x3FFF);
-        // adlak_write32(region, REG_ADLAK_0X120, 0xF1);
         adlak_write32(region, REG_ADLAK_0X120, 0xFF);
         adlak_write32(region, REG_ADLAK_0X2C, 0x0608);
     }
@@ -535,14 +528,12 @@ int adlak_hal_reset(void *data) {
 
     ret = adlak_hal_soft_reset(data);
     if (ret) ret = adlak_hal_hard_reset(data);
-    padlak->hw_stat.stat = ADLAK_HW_STAT_INITED;
     // adlak_smmu_reset(region);
     // adlak_parser_reset(region);
     padlak->cmq_buf_info.cmq_wr_offset = 0;
     padlak->cmq_buf_info.cmq_rd_offset = 0;
     //  adlak_pm_reset(padlak);
     adlak_hal_irq_clear(padlak, 0xFFFFFFFF);
-    padlak->hw_stat.paser_stat = ADLAK_PS_STAT_RESETED;
 
     return ret;
 }
@@ -903,7 +894,7 @@ void adlak_hw_dev_suspend(void *data) {
     // adlak_hal_reset(data);
 }
 
-void adlak_check_dev_is_idle(void *data) {
+int adlak_check_dev_is_idle(void *data) {
 #if !(CONFIG_ADLAK_EMU_EN)
     struct adlak_device * padlak   = (struct adlak_device *)data;
     struct adlak_hw_info *phw_info = (struct adlak_hw_info *)padlak->hw_info;
@@ -913,6 +904,11 @@ void adlak_check_dev_is_idle(void *data) {
     idel_sts = adlak_read32(phw_info->region, REG_ADLAK_0X8C);
     if (idel_sts != 0xFFFFFFFF) {
         AML_LOG_WARN("REG_ADLAK_0X8C   : 0x%08X", idel_sts);
+        return ERR(EIO);
+    } else {
+        return ERR(NONE);
     }
+#else
+    return ERR(NONE);
 #endif
 }

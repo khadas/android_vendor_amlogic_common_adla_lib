@@ -105,25 +105,15 @@ struct adlak_device {
         struct adlak_mem_handle *cmq_mm_info;
 
     } cmq_buf_info;
-    struct _hw_stat {
-#define ADLAK_HW_STAT_UNKNOWN (0)
-#define ADLAK_HW_STAT_INITED (1)
-#define ADLAK_HW_STAT_ERR (2)
-#define ADLAK_HW_STAT_NEED_RESET (3)
-        uint32_t stat; /**/
-#define ADLAK_PS_STAT_UNKNOWN (0)
-#define ADLAK_PS_STAT_RESETED (1)
-#define ADLAK_PS_STAT_STOP (2)
-#define ADLAK_PS_STAT_RUN (3)
-#define ADLAK_PS_STAT_ERR (4)
-        uint32_t paser_stat;
-    } hw_stat;
-    adlak_os_sema_t paser_refresh;
-    bool            smmu_en;
 
-    int             dpm_en;
-    int             dpm_period_set;
-    void            *pdpm;  // dynamic power management
+    bool smmu_en;
+
+    int   dpm_en;
+    int   dpm_period_set;
+    void  *pdpm;  // dynamic power management
+
+    bool            share_swap_en; /*Share swap memory between diffrent models*/
+    unsigned int    share_buf_size;
     int             nn_regulator_type;
     int             nn_dts_hw_ver;
     uint32_t        nn_voltage;

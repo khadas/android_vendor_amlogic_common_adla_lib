@@ -51,29 +51,26 @@ struct adlak_dev_inference {
     adlak_os_spinlock_t spinlock;
     adlak_os_sema_t     sem_irq;
     adlak_os_sema_t     sem_dpm;
-    int                 dmp_timeout;
     adlak_os_timer_t    emu_timer;
     adlak_os_timer_t    dpm_timer;
     adlak_os_thread_t   thrd_inference;
+    uint32_t            dmp_timeout;
 };
 struct adlak_workqueue {
     adlak_os_mutex_t wq_mutex;
     adlak_os_sema_t  wk_update;
     struct list_head pending_list;
-    struct list_head ready_list;
     struct list_head scheduled_list;
     struct list_head finished_list;
 
     int   sched_num;
     int   sched_num_max;
-    int   ready_num;
-    int   ready_num_max;
     int   pending_num;
+    int   valid_num;
     int   finished_num;
     void *ptask_sch_cur;
 
-    struct adlak_global_id id_backup;  // for rollback
-    struct adlak_global_id id_cur;     // for rollback
+    struct adlak_global_id id_cur;  // for rollback
 
     struct adlak_dev_inference dev_inference;
 };
@@ -88,10 +85,9 @@ int adlak_debug_invoke_list_dump(struct adlak_device *padlak, uint32_t debug);
 int adlak_test_irq_emu(struct adlak_device *padlak);
 
 uint32_t adlak_cmd_get_sw_id(struct adlak_workqueue *pwq);
-void     adlak_wq_globalid_backup(struct adlak_device *padlak);
-void     adlak_wq_globalid_rollback(struct adlak_device *padlak);
-int      adlak_dev_inference_init(struct adlak_device *padlak);
-int      adlak_dev_inference_deinit(struct adlak_device *padlak);
+
+int adlak_dev_inference_init(struct adlak_device *padlak);
+int adlak_dev_inference_deinit(struct adlak_device *padlak);
 #ifdef __cplusplus
 }
 #endif

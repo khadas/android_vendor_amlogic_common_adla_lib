@@ -65,7 +65,12 @@ int adlak_create_context(void *adlak_device, struct adlak_context **p_context) {
     }
     context->net_id      = padlak->net_id;
     context->mem_alloced = 0;
+
+    context->smmu_tlb_updated = 0;
     AML_LOG_DEBUG("new context created, net_id[%d]", context->net_id);
+
+    adlak_os_sema_init(&context->invoke_state, 1, 0);
+
     adlak_to_umd_sinal_init(&context->wait);
     /*Add to context queue*/
     INIT_LIST_HEAD(&context->head);
@@ -138,6 +143,7 @@ int adlak_destroy_context(struct adlak_device *padlak, struct adlak_context *con
         adlak_to_umd_sinal_deinit(&context->wait);
 
         adlak_os_sema_destroy(&context->ctx_idle);
+        adlak_os_sema_destroy(&context->invoke_state);
         adlak_os_mutex_unlock(&context->context_mutex);
         adlak_os_mutex_destroy(&context->context_mutex);
 

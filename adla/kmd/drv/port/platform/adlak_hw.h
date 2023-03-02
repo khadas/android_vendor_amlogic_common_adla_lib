@@ -154,7 +154,7 @@ void     adlak_hal_irq_enable(void *padlak, uint32_t en);
 void adlak_hw_dev_resume(void *data);
 void adlak_hw_dev_suspend(void *data);
 
-void adlak_check_dev_is_idle(void *data);
+int adlak_check_dev_is_idle(void *data);
 #ifdef __cplusplus
 }
 #endif

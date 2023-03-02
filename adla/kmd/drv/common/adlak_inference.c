@@ -72,45 +72,7 @@ int adlak_submit_wait(struct adlak_dev_inference *pinference, struct adlak_task 
     } while (repeat < 2);
     return ret;
 }
-void adlak_wq_check_ready_queue(struct adlak_workqueue *pwq) {
-    struct adlak_task *ptask = NULL;
-    bool               found = false;
 
-    adlak_os_mutex_lock(&pwq->wq_mutex);
-    if (pwq->ready_num < pwq->ready_num_max) {
-        // ready list is not full
-        found = false;
-        if (!list_empty(&pwq->pending_list)) {
-            //- get one task from pendding list, and move one to ready list
-
-            ptask = list_first_entry(&pwq->pending_list, typeof(struct adlak_task), head);
-            if (ptask == NULL) {
-                AML_LOG_INFO("task is NULL\n");
-            } else {
-                found = true;
-                list_move_tail(&ptask->head, &pwq->ready_list);
-                pwq->pending_num--;
-                pwq->ready_num++;
-            }
-            if (found) {
-                //**patching and copy to cmq buffer**
-                ptask = list_first_entry(&pwq->ready_list, typeof(struct adlak_task), head);
-#ifdef CONFIG_ADLAK_PRE_PATCH
-                if (ptask) {
-                    if (0 != adlak_invoke_pattching(ptask)) {
-                        AML_LOG_INFO("adlak_invoke_pattching Fail!\n");
-                    }
-                }
-#else
-// skip patching
-#endif
-            }
-        } else {
-            // skip
-        }
-    }
-    adlak_os_mutex_unlock(&pwq->wq_mutex);
-}
 static void adlak_debug_print_device_state(uint32_t device_state) {
 #if ADLAK_DEBUG
     switch (device_state) {
@@ -133,6 +95,52 @@ static void adlak_debug_print_device_state(uint32_t device_state) {
 #endif
 }
 
+static void adlak_dpm_timer_cb(struct timer_list *t) {
+    struct adlak_workqueue *pwq = g_adlak_pwq;
+    int                     all_task_num;
+
+    AML_LOG_DEBUG("%s\n", __func__);
+    all_task_num = pwq->sched_num + pwq->pending_num;
+
+    if (all_task_num < 1) {
+        pwq->dev_inference.dmp_timeout += 1;
+        adlak_os_sema_give(pwq->wk_update);
+    }
+}
+
+static int32_t adlak_get_valid_num(struct adlak_workqueue *pwq, int32_t *net_id_pre) {
+    /* if the net_id of context has been destroyed,the net_id will be set to -1*/
+    int32_t            valid_num = 0;
+    int                find      = 0;
+    struct adlak_task *ptask = NULL, *ptask_tmp = NULL;
+    int32_t            net_id = *net_id_pre;
+    if (net_id < 0) {
+        valid_num = pwq->pending_num;
+    } else {
+        /*the model not invoke to the end*/
+        if (pwq->pending_num > 0) {
+            list_for_each_entry_safe(ptask, ptask_tmp, &pwq->pending_list, head) {
+                if (net_id == ptask->net_id) {
+                    if (CONTEXT_STATE_CLOSED == ptask->context->state) {
+                        /*the net_id of context has been destroyed.*/
+                        *net_id_pre = -1;
+                    } else {
+                        find = 1;
+                    }
+                    break;
+                }
+            }
+        }
+        net_id = *net_id_pre;
+        if (net_id < 0) {
+            valid_num = pwq->pending_num;
+        } else {
+            valid_num = find;
+        }
+    }
+    return valid_num;
+}
+
 int adlak_dev_inference_cb(void *args) {
     int                     ret;
     struct adlak_device *   padlak = args;
@@ -143,62 +151,67 @@ int adlak_dev_inference_cb(void *args) {
     struct adlak_task *     ptask_sch_cur = NULL, *ptask_sch_pre = NULL;
     uint32_t                wq_idel_cnt    = 0;
     uint32_t                dpm_period_set = padlak->dpm_period_set;
+    int32_t                 net_id_invoke_previous =-1;
+
+    ret = adlak_os_timer_init(&pwq->dev_inference.dpm_timer, (void (*)(struct timer_list *))adlak_dpm_timer_cb,
+                              NULL);
+    if (ret) {
+        AML_LOG_ERR("dpm_timer init fail!\n");
+        return NULL;
+    }
+    pwq->dev_inference.dmp_timeout = 0;
+
     if (ADLAK_DEVICE_INIT == device_state) {
         device_state = ADLAK_DEVICE_IDLE;
     }
     while (!pthrd->thrd_should_stop) {
         // adlak_might_sleep();
         AML_LOG_DEBUG("%s\n", __func__);
-        do {
-            adlak_wq_check_ready_queue(pwq);
-            if (pwq->pending_num < 1) {
-                break;
-            }
-        } while (pwq->ready_num < 1);
 
         if (ADLAK_DEVICE_IDLE == device_state) {
             adlak_os_mutex_lock(&pwq->wq_mutex);
-            all_task_num = pwq->sched_num + pwq->ready_num + pwq->pending_num;
+            pwq->valid_num = adlak_get_valid_num(pwq, &net_id_invoke_previous);
+            all_task_num   = pwq->sched_num + pwq->valid_num;
             adlak_os_mutex_unlock(&pwq->wq_mutex);
 
             if (all_task_num < 1) {
-                /* crate a timer to dpm*/
-                if (pwq->dev_inference.dmp_timeout == 0)
-                {
-                    adlak_os_timer_add(&pwq->dev_inference.dpm_timer, 3000);
-                }
                 AML_LOG_DEBUG("nothing need to do!\n");
-                if (ERR(EINTR) == adlak_os_sema_take(pwq->wk_update)) {
-
-                } else {
-                    wq_idel_cnt = 0;
-                    if (pwq->dev_inference.dmp_timeout == 1)
-                    {
-                        adlak_dpm_stage_adjust(padlak, ADLAK_DPM_STRATEGY_MIN);
-                    }
-                    else
-                    {
+                adlak_os_timer_add(&pwq->dev_inference.dpm_timer, dpm_period_set);
+                adlak_os_thread_yield();
+                if (ERR(NONE) == adlak_os_sema_take(pwq->wk_update)) {
+                    if (pwq->dev_inference.dmp_timeout) {
+                        pwq->dev_inference.dmp_timeout = 0;
+                        wq_idel_cnt++;
+                        if (wq_idel_cnt > 10) {
+                            // device dpm schedule
+                            wq_idel_cnt = 0;
+                            adlak_dpm_stage_adjust(padlak, ADLAK_DPM_STRATEGY_MIN);
+                        }
+                    } else {
+                        // pwq is not empty
+                        wq_idel_cnt = 0;
                         adlak_os_timer_del(&pwq->dev_inference.dpm_timer);
-                        adlak_dpm_stage_adjust(padlak, ADLAK_DPM_STRATEGY_MAX);
+                        adlak_dpm_stage_adjust(padlak, ADLAK_DPM_STRATEGY_MAX);  // wake up
                     }
                 }
             }
         }
 
-         if (padlak->need_reset_queue) {
-                padlak->need_reset_queue = false;
+        if (padlak->need_reset_queue) {
+            padlak->need_reset_queue = false;
 #if CONFIG_ADLAK_DPM_EN
-                adlak_os_mutex_lock(&pwq->wq_mutex);
-                adlak_queue_reset(padlak);
-                // reset wq
-                ptask_sch_pre         = NULL;
-                ptask_sch_cur         = NULL;
-                pwq->ptask_sch_cur    = ptask_sch_cur;
-                g_adlak_ptask_sch_cur = ptask_sch_cur;
-                device_state          = ADLAK_DEVICE_IDLE;
-                adlak_os_mutex_unlock(&pwq->wq_mutex);
+            AML_LOG_INFO("Need to reset work queue.\n");
+            adlak_os_mutex_lock(&pwq->wq_mutex);
+            adlak_queue_reset(padlak);
+            // reset wq
+            ptask_sch_pre         = NULL;
+            ptask_sch_cur         = NULL;
+            pwq->ptask_sch_cur    = ptask_sch_cur;
+            g_adlak_ptask_sch_cur = ptask_sch_cur;
+            device_state          = ADLAK_DEVICE_IDLE;
+            adlak_os_mutex_unlock(&pwq->wq_mutex);
 #endif
-            }
+        }
 
         if (ADLAK_DEVICE_BUSY == device_state) {
             if (ERR(NONE) != adlak_submit_wait(&pwq->dev_inference, ptask_sch_cur)) {
@@ -215,7 +228,10 @@ int adlak_dev_inference_cb(void *args) {
 
         /*if hw_status is ready,schedule_next task*/
         if (ADLAK_DEVICE_IDLE == device_state) {
-            if (pwq->ready_num > 0) {
+            adlak_os_mutex_lock(&pwq->wq_mutex);
+            pwq->valid_num = adlak_get_valid_num(pwq, &net_id_invoke_previous);
+            adlak_os_mutex_unlock(&pwq->wq_mutex);
+            if (pwq->valid_num > 0) {
                 if (NULL != ptask_sch_cur) {
                     if (NULL != ptask_sch_pre) {
                         ASSERT(0);
@@ -224,7 +240,7 @@ int adlak_dev_inference_cb(void *args) {
                     ptask_sch_cur = NULL;
                 }
                 // submit
-                adlak_queue_schedule_update(padlak, &ptask_sch_cur);
+                adlak_queue_schedule_update(padlak, &ptask_sch_cur, net_id_invoke_previous);
                 if (NULL == ptask_sch_cur) {
                     // TODO(shiwei.sun) just for debug,Program should not execute here
                     AML_LOG_WARN("Do not need sch!");
@@ -232,11 +248,13 @@ int adlak_dev_inference_cb(void *args) {
                     pwq->ptask_sch_cur    = ptask_sch_cur;
                     g_adlak_ptask_sch_cur = ptask_sch_cur;
                     device_state          = ADLAK_DEVICE_BUSY;
-#ifdef CONFIG_ADLAK_PRE_PATCH
-                    (void)adlak_submit_exec(ptask_sch_cur);
-#else
                     (void)adlak_submit_patch_and_exec(ptask_sch_cur);
-#endif
+                    net_id_invoke_previous = -1;
+                    if (padlak->share_swap_en) {
+                        if (ptask_sch_cur->invoke_end_idx < ptask_sch_cur->hw_layer_last) {
+                            net_id_invoke_previous = ptask_sch_cur->net_id;
+                        }
+                    }
                 }
                 adlak_debug_print_device_state(device_state);
             }
@@ -247,7 +265,11 @@ int adlak_dev_inference_cb(void *args) {
             AML_LOG_INFO("adlak_queue_update_task_state pre %d !\n", __LINE__);
             ret = adlak_queue_update_task_state(padlak, (struct adlak_task *)ptask_sch_pre);
             adlak_os_mutex_unlock(&pwq->wq_mutex);
-            if (!ret) {
+            if (1 == ret) {
+                AML_LOG_DEBUG("%s wakeup wq", __func__);
+                adlak_to_umd_sinal_give(ptask_sch_cur->context->wait); /*give signal to umd*/
+            }
+            if (ret >= 0) {
                 ptask_sch_pre = NULL;
             }
         }
@@ -257,7 +279,11 @@ int adlak_dev_inference_cb(void *args) {
                 AML_LOG_INFO("adlak_queue_update_task_state cur %d !\n", __LINE__);
                 ret = adlak_queue_update_task_state(padlak, (struct adlak_task *)ptask_sch_cur);
                 adlak_os_mutex_unlock(&pwq->wq_mutex);
-                if (!ret) {
+                if (1 == ret) {
+                    AML_LOG_DEBUG("%s wakeup wq", __func__);
+                    adlak_to_umd_sinal_give(ptask_sch_cur->context->wait); /*give signal to umd*/
+                }
+                if (ret >= 0) {
                     ptask_sch_cur         = NULL;
                     pwq->ptask_sch_cur    = ptask_sch_cur;
                     g_adlak_ptask_sch_cur = ptask_sch_cur;
@@ -284,6 +310,9 @@ int adlak_dev_inference_cb(void *args) {
         }
     }
     pthrd->thrd_should_stop = 0;
+    if (pwq->dev_inference.dpm_timer) {
+        adlak_os_timer_destroy(&pwq->dev_inference.dpm_timer);
+    }
     return 0;
 }
 
@@ -309,20 +338,6 @@ static void adlak_emu_irq_cb(struct timer_list *t) {
 }
 #endif
 
-static void adlak_dpm_timer_cb(struct timer_list *t) {
-    struct adlak_workqueue     *pwq = NULL;
-    int                         all_task_num;
-    pwq                             = g_adlak_pwq;
-
-    AML_LOG_DEBUG("%s\n", __func__);
-    all_task_num = pwq->sched_num + pwq->ready_num + pwq->pending_num;
-
-    if (all_task_num < 1)
-    {
-        pwq->dev_inference.dmp_timeout = 1;
-        adlak_os_sema_give(pwq->wk_update);
-    }
-}
 /**
  * @brief inference on adlak hardware
  *
@@ -345,18 +360,13 @@ int adlak_dev_inference_init(struct adlak_device *padlak) {
     ret = adlak_os_sema_init(&pinference->sem_irq, 1, 0);
 
 #if defined(CONFIG_ADLAK_EMU_EN) && (CONFIG_ADLAK_EMU_EN == 1)
-    ret = adlak_os_timer_init(&pinference->emu_timer, adlak_emu_irq_cb, NULL);
+    ret = adlak_os_timer_init(&pinference->emu_timer, (void (*)(void *))adlak_emu_irq_cb, NULL);
     if (ret) {
         AML_LOG_ERR("emu_timer init fail!\n");
     }
 #endif
-    ret = adlak_os_timer_init(&pinference->dpm_timer, adlak_dpm_timer_cb, NULL);
-    if (ret) {
-        AML_LOG_ERR("emu_timer init fail!\n");
-    }
-
     ret = adlak_os_thread_create(&pinference->thrd_inference,
-                                 adlak_dev_inference_cb, (void *)padlak);
+                                 (int(*)(void *))adlak_dev_inference_cb, (void *)padlak);
     if (ret) {
         AML_LOG_ERR("Create inference thread fail!\n");
     }
@@ -375,8 +385,7 @@ int adlak_dev_inference_deinit(struct adlak_device *padlak) {
     struct adlak_workqueue *    pwq        = &padlak->queue;
     struct adlak_dev_inference *pinference = &pwq->dev_inference;
     AML_LOG_DEBUG("%s\n", __func__);
-    pwq->dev_inference.dmp_timeout = 0;
-    adlak_os_sema_give(pwq->wk_update);
+
     ret = adlak_os_thread_detach(&pinference->thrd_inference);
     if (ret) {
         AML_LOG_ERR("Detach inference thread fail!\n");
@@ -387,9 +396,6 @@ int adlak_dev_inference_deinit(struct adlak_device *padlak) {
     }
     if (pinference->emu_timer) {
         adlak_os_timer_destroy(&pinference->emu_timer);
-    }
-    if (pinference->dpm_timer) {
-        adlak_os_timer_destroy(&pinference->dpm_timer);
     }
     if (pinference->sem_irq) {
         ret = adlak_os_sema_destroy(&pinference->sem_irq);

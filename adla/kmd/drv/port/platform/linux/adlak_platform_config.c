@@ -68,6 +68,10 @@ static int adlak_dpm_period = 300;
 
 static int adlak_log_level = -1;
 
+static uint adlak_share_swap = 0;
+
+static uint adlak_share_buf_size = 0;
+
 #include "./adlak_platform_module_param.c"
 /**************************** Type Definitions *******************************/
 typedef enum {
@@ -89,15 +93,15 @@ typedef enum {
     Adla_Efuse_Type_TT = 2,
     Adla_Efuse_Type_FF = 3,
 } nn_efuse_type_t;
-
 /***************** Macros (Inline Functions) Definitions *********************/
 #define GPIO_REGULATOR_NAME      "vdd_npu"
 #define PWM_REGULATOR_NAME       "vddnpu"
-
 /************************** Variable Definitions *****************************/
+#if CONFIG_ADLAK_EMU_EN
+extern uint32_t g_adlak_emu_dev_cmq_total_size;
+#endif
 struct regulator            *nn_regulator;
 int                         nn_board_id;
-
 /************************** Function Prototypes ******************************/
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
 extern unsigned int get_cpufreq_table_index(u64 function_id, u64 arg0, u64 arg1, u64 arg2);
@@ -394,6 +398,7 @@ static int adlak_voltage_adjust_default(struct adlak_device *padlak) {
 int adlak_voltage_init(void *data) {
     int ret = 0;
     struct adlak_device *padlak = (struct adlak_device *)data;
+
     switch ((nn_regulator_type_t)padlak->nn_dts_hw_ver) {
     case Adla_Hw_Ver_r2p0:
         ret = adlak_voltage_adjust_r2p0(padlak);
@@ -407,7 +412,7 @@ int adlak_voltage_init(void *data) {
         break;
     }
 
-    if (!ret )
+    if (!ret)
         AML_LOG_INFO("ADLA KMD voltage init success ");
 
     return ret;
@@ -542,6 +547,9 @@ int adlak_platform_get_resource(void *data) {
 
     padlak->cmq_buf_info.size       = ADLAK_ALIGN(adlak_cmd_queue_size, 256);
     padlak->cmq_buf_info.total_size = padlak->cmq_buf_info.size;
+#if CONFIG_ADLAK_EMU_EN
+    g_adlak_emu_dev_cmq_total_size = padlak->cmq_buf_info.total_size;
+#endif
     AML_LOG_DEBUG("cmq_size=%d byte,total size=%d", padlak->cmq_buf_info.size,
                   padlak->cmq_buf_info.total_size);
 
@@ -562,12 +570,21 @@ int adlak_platform_get_resource(void *data) {
     padlak->clk_axi_freq_set  = adlak_axi_freq;
     padlak->clk_core_freq_set = adlak_core_freq;
     padlak->dpm_period_set    = adlak_dpm_period;
+
     if (adlak_log_level != -1) {
         g_adlak_log_level = adlak_log_level;
 #if ADLAK_DEBUG
         g_adlak_log_level_pre = g_adlak_log_level;
 #endif
     }
+
+    padlak->share_swap_en  = 0;
+    padlak->share_buf_size = 0;
+    if (adlak_share_swap > 0) {
+        padlak->share_swap_en  = 1;
+        padlak->share_buf_size = adlak_share_buf_size;
+    }
+
     return 0;
 err:
     return ret;
@@ -644,16 +661,16 @@ void adlak_platform_set_clock(void *data, bool enable, int core_freq, int axi_fr
 
     if (false == enable) {
         if (true == padlak->is_clk_axi_enabled) {
-            if (!IS_ERR_OR_NULL(padlak->clk_axi)) {
+            if (!ADLAK_IS_ERR_OR_NULL(padlak->clk_axi)) {
                 clk_disable_unprepare(padlak->clk_axi);
-                padlak->is_clk_axi_enabled  = false;
             }
+            padlak->is_clk_axi_enabled = false;
         }
         if (true == padlak->is_clk_core_enabled) {
-            if (!IS_ERR_OR_NULL(padlak->clk_core)) {
+            if (!ADLAK_IS_ERR_OR_NULL(padlak->clk_core)) {
                 clk_disable_unprepare(padlak->clk_core);
-                padlak->is_clk_core_enabled = false;
             }
+            padlak->is_clk_core_enabled = false;
         }
     } else {
         // clk enable
@@ -680,8 +697,8 @@ void adlak_platform_set_clock(void *data, bool enable, int core_freq, int axi_fr
                     AML_LOG_ERR("Failed to set adla_axi_clk\n");
                 }
                 padlak->clk_axi_freq_real = (int)clk_get_rate(padlak->clk_axi);
-                AML_LOG_DEBUG("adlak_axi clk requirement of %d Hz,and real val is %d Hz.", axi_freq,
-                              padlak->clk_axi_freq_real);
+                adlak_os_printf("adlak_axi clk requirement of %d Hz,and real val is %d Hz.",
+                                axi_freq, padlak->clk_axi_freq_real);
             }
             if (!ADLAK_IS_ERR_OR_NULL(padlak->clk_core)) {
                 ret = clk_set_rate(padlak->clk_core, core_freq);
@@ -690,8 +707,8 @@ void adlak_platform_set_clock(void *data, bool enable, int core_freq, int axi_fr
                 }
                 padlak->clk_core_freq_real = (int)clk_get_rate(padlak->clk_core);
 
-                AML_LOG_DEBUG("adlak_core clk requirement of %d Hz,and real val is %d Hz.",
-                              core_freq, padlak->clk_core_freq_real);
+                adlak_os_printf("adlak_core clk requirement of %d Hz,and real val is %d Hz.",
+                                core_freq, padlak->clk_core_freq_real);
             }
         }
     }

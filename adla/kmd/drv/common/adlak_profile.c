@@ -37,6 +37,7 @@ int adlak_profile_start(struct adlak_device *padlak, struct adlak_profile *profi
                         int32_t invoke_start_idx) {
     int32_t offset = 256 * invoke_start_idx;
     AML_LOG_DEBUG("%s", __func__);
+
     ASSERT(padlak);
     ASSERT(profile_data);
     if (1 == profile_data->profile_en) {

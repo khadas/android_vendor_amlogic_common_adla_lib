@@ -48,7 +48,7 @@ static inline uint32_t adlak_read32(struct io_region *region, __IO offset) {
     ASSERT(offset < region->size);
 #if ADLAK_HW_DEBUG_EN
     val = readl((void __iomem *)((__IO)(region->va_kernel) + offset));
-    // printk(KERN_ERR "[ADLAK] read  reg[0x%lX] = [0x%X].", offset, val);
+    printk(KERN_ERR "[ADLAK DEBUG] read  reg[0x%lX] = [0x%X].", offset, val);
     return val;
 #else
     return readl((void __iomem *)((__IO)(region->va_kernel) + offset));

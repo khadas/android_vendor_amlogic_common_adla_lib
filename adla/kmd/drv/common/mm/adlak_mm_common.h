@@ -64,7 +64,8 @@ enum adlak_mem_src {
 enum adlak_mem_type_inner {
     ADLAK_ENUM_MEMTYPE_INNER_CACHEABLE    = (1u << 0),
     ADLAK_ENUM_MEMTYPE_INNER_CONTIGUOUS   = (1u << 1),
-    ADLAK_ENUM_MEMTYPE_INNER_PA_WITHIN_4G = (1u << 4)  // physical address less than 4Gbytes
+    ADLAK_ENUM_MEMTYPE_INNER_PA_WITHIN_4G = (1u << 4),  // physical address less than 4Gbytes
+    ADLAK_ENUM_MEMTYPE_INNER_SHARE        = (1u << 5)
 };
 
 struct adlak_mem_pool_info {
@@ -121,7 +122,21 @@ struct adlak_mem_handle {
     phys_addr_t *             phys_addrs;
     enum dma_data_direction   direction;
     enum adlak_mem_src        mem_src;
-    enum adlak_mem_type       mem_type;  // the mem_type may not same as request info
+    uint32_t                  mem_type;  // the mem_type may not same as request info
+    uint32_t                  from_pool;
+};
+
+/*Share swap memory between different models to avoid dram size usage,
+    but sacrifices performance when executing multiple models simultaneously*/
+struct adlak_share_swap_buf {
+    unsigned int ref_cnt;          /*reference count of share memory*/
+    unsigned int offset_start;     /*record the min value of start addr */
+    unsigned int bitmap_count_max; /*record the max number of bitmap*/
+    unsigned int share_swap_en;
+    unsigned int share_buf_size;
+    phys_addr_t  share_buf_phys_addr;
+    void *       share_buf_cpu_addr;
+    dma_addr_t   share_buf_dma_addr;
 };
 
 struct adlak_mem {
@@ -135,6 +150,10 @@ struct adlak_mem {
     struct adlak_mem_pool_info *mem_pool;
     struct device_node *        res_mem_dev;
     struct device *             dev;
+
+    /*Share swap memory between different models to avoid dram size usage,
+    but sacrifices performance when executing multiple models simultaneously*/
+    struct adlak_share_swap_buf share_buf;
 };
 
 #ifndef ADLAK_MM_POOL_PAGE_SHIFT

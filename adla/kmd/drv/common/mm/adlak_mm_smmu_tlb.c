@@ -66,9 +66,10 @@ int adlak_smmu_tlb_alloc(struct adlak_device *padlak) {
     AML_LOG_INFO("Alloc tlb2 buffer.");
 #endif
     for (idx1 = 0; idx1 < SMMU_TLB1_ENTRY_COUNT; idx1++) {
-        psmmu->tlb_l2[idx1].size = ADLAK_ALIGN(SMMU_TLB2_SIZE, SMMU_ALIGN_SIZE);
-        buf_req.bytes            = psmmu->tlb_l2[idx1].size;
-        mm_info                  = adlak_mm_alloc(padlak->mm, &buf_req);
+        psmmu->tlb_l2[idx1].size  = ADLAK_ALIGN(SMMU_TLB2_SIZE, SMMU_ALIGN_SIZE);
+        buf_req.ret_desc.mem_type = ADLAK_ENUM_MEMTYPE_CONTIGUOUS | ADLAK_ENUM_MEMTYPE_INNER;
+        buf_req.bytes             = psmmu->tlb_l2[idx1].size;
+        mm_info                   = adlak_mm_alloc(padlak->mm, &buf_req);
         if (ADLAK_IS_ERR_OR_NULL(mm_info)) {
             ret = -1;
             AML_LOG_ERR("adlak_os_alloc_contiguous failed.");
@@ -82,9 +83,9 @@ int adlak_smmu_tlb_alloc(struct adlak_device *padlak) {
     for (idx1 = 0; idx1 < SMMU_TLB1_ENTRY_COUNT; idx1++) {
         for (idx2 = 0; idx2 < SMMU_TLB2_ENTRY_COUNT_2M; idx2++) {
             psmmu->tlb_l3[idx1][idx2].size = ADLAK_ALIGN(SMMU_TLB3_SIZE, SMMU_ALIGN_SIZE);
-
-            buf_req.bytes = psmmu->tlb_l3[idx1][idx2].size;
-            mm_info       = adlak_mm_alloc(padlak->mm, &buf_req);
+            buf_req.ret_desc.mem_type = ADLAK_ENUM_MEMTYPE_CONTIGUOUS | ADLAK_ENUM_MEMTYPE_INNER;
+            buf_req.bytes             = psmmu->tlb_l3[idx1][idx2].size;
+            mm_info                   = adlak_mm_alloc(padlak->mm, &buf_req);
             if (ADLAK_IS_ERR_OR_NULL(mm_info)) {
                 ret = -1;
                 AML_LOG_ERR("adlak_os_alloc_contiguous failed.");

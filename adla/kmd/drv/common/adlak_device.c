@@ -50,7 +50,6 @@
 int adlak_device_init(struct adlak_device *padlak) {
     int ret = 0;
     adlak_os_printf("%s kmd version: %s\n", DEVICE_NAME, ADLAK_VERSION);
-    adlak_os_printf("%s DDK version: 1.7.1\n",DEVICE_NAME);
     adlak_os_mutex_init(&padlak->dev_mutex);
     adlak_os_spinlock_init(&padlak->spinlock);
     INIT_LIST_HEAD(&padlak->context_list);
@@ -184,7 +183,6 @@ int adlak_irq_proc(struct adlak_device *const padlak) {
         if (0 == (irqstatus->irq_masked ^ ADLAK_IRQ_MASK_LAYER_END)) {
             AML_LOG_INFO("IRQ layer end only.");  // just for test
             adlak_hal_irq_clear(padlak, irqstatus->irq_masked);
-            adlak_os_sema_give_from_isr(padlak->paser_refresh);
             return 0;
         }
     }
@@ -201,10 +199,12 @@ int adlak_irq_proc(struct adlak_device *const padlak) {
     if (irqstatus->irq_masked & phw_stat->hw_info->irq_cfg.mask_err) {
         AML_LOG_ERR("interrupt disabled temporary!");
         adlak_hal_irq_enable(padlak, false);
+#ifdef CONFIG_ADLAK_DEBUG_INNNER
+        adlak_dbg_dump_module_read_data(ptask->context);
+#endif
     }
     adlak_hal_irq_clear(padlak, irqstatus->irq_masked);
     adlak_os_sema_give_from_isr(pinference->sem_irq);
-    adlak_os_sema_give_from_isr(padlak->paser_refresh);
 
     return 0;
 }

@@ -73,6 +73,7 @@ void adlak_platform_set_power(void *data, bool enable);
 void adlak_platform_resume(void *data);
 
 void adlak_platform_suspend(void *data);
+
 int adlak_voltage_init(void *data);
 int adlak_voltage_uninit(void *data);
 #ifdef __cplusplus

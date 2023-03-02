@@ -48,7 +48,8 @@ enum adlak_mem_type {
     ADLAK_ENUM_MEMTYPE_CACHEABLE    = (1 << 0),
     ADLAK_ENUM_MEMTYPE_CONTIGUOUS   = (1 << 1),
     ADLAK_ENUM_MEMTYPE_INNER        = (1 << 2),  // For ADLA use only if value is true.
-    ADLAK_ENUM_MEMTYPE_PA_WITHIN_4G = (1 << 4)   // physical address less than 4Gbytes
+    ADLAK_ENUM_MEMTYPE_PA_WITHIN_4G = (1 << 4),  // physical address less than 4Gbytes
+    ADLAK_ENUM_MEMTYPE_SHARE        = (1 << 5)   // share between disferent models
 } __packed;
 
 enum adlak_mem_direction {
@@ -88,10 +89,10 @@ struct adlak_buf_flush {
 } __packed;
 
 struct adlak_network_desc {
-    uint32_t config_size;
-    uint32_t dep_fixups_num;
-    uint32_t reg_fixups_num;
-    uint32_t tasks_num;
+    int32_t  config_size;
+    int32_t  dep_fixups_num;
+    int32_t  reg_fixups_num;
+    int32_t  tasks_num;
     uint64_t config_va;
     uint64_t dep_fixups_va;
     uint64_t reg_fixups_va;
@@ -126,6 +127,7 @@ struct adlak_network_invoke_del_desc {
 struct adlak_get_stat_desc {
     int32_t  net_register_idx;
     int32_t  invoke_register_idx;
+    int32_t  timeout_ms;
     int32_t  start_idx;       // return from kmd
     int32_t  end_idx;         // return from kmd
     int32_t  ret_state;       // 0: success,1:running,-1: timeout, -3: other err

@@ -60,6 +60,12 @@ enum ADLAK_SUBMIT_STATE {
 #define PS_CMD_CONFIG_WITH_ADDRESS 0x77000000
 #define PS_CMD_SET_SW_ID 0x7E000000
 #define PS_CMD_STOP 0x7F000000
+
+// fence command
+#define PS_CMD_FENCE_PWX_MASK 0x00100000
+#define PS_CMD_FENCE_PWE_MASK 0x00200000
+#define PS_CMD_FENCE_RS_MASK 0x00400000
+
 // time stamp command
 #define PS_CMD_TIME_STAMP_IRQ_MASK 0x00000001
 
@@ -182,13 +188,13 @@ struct adlak_submit_task {
     int32_t  start_pwx_flid;
     int32_t  start_rs_flid;
     int32_t  memory_access_types[12]; /*not used in kmd*/
+    uint32_t fence_modules;
+    int32_t  dependency_mode;
 };
 
 struct adlak_cmq_buf_info {
     struct adlak_mem_handle *mm_info;
-    uint64_t                 offset;
     uint32_t                 size;
-    uint32_t                 rpt;
 };
 
 struct adlak_task {
@@ -203,11 +209,11 @@ struct adlak_task {
     struct adlak_submit_reg_fixup * submit_reg_fixups;
     struct adlak_submit_addr_fixup *submit_addr_fixups;
     uint8_t *                       config;
-    uint32_t                        submit_tasks_num;
-    uint32_t                        dep_fixups_num;
-    uint32_t                        reg_fixups_num;
-    uint32_t                        addr_fixups_num;
-    uint32_t                        config_size;
+    int32_t                         submit_tasks_num;
+    int32_t                         dep_fixups_num;
+    int32_t                         reg_fixups_num;
+    int32_t                         addr_fixups_num;
+    int32_t                         config_size;
     struct adlak_hw_stat            hw_stat;
     int32_t                         invoke_start_idx;
     int32_t                         invoke_end_idx;
@@ -215,10 +221,11 @@ struct adlak_task {
     struct adlak_context *          context;
     uint32_t                        time_stamp;
     uint32_t                        hw_timeout_ms;
+    uint32_t                        cmd_offset_start;
+    uint32_t                        cmd_offset_end;
+    uint32_t                        hw_layer_last;  // indicate the last layer of hadware
 
     struct adlak_profile profilling;
-
-    adlak_os_sema_t invoke_done;
 };
 
 /************************** Function Prototypes ******************************/
@@ -240,20 +247,19 @@ int adlak_uninvoke_request(struct adlak_context *                context,
 int adlak_get_status_request(struct adlak_context *context, struct adlak_get_stat_desc *stat_desc);
 int adlak_profile_config(struct adlak_context *context, struct adlak_profile_cfg_desc *profile_cfg);
 
-int  adlak_invoke_del_all(struct adlak_device *padlak, int32_t net_id);
-int  adlak_clear_sch_list(struct adlak_device *padlak);
-int  adlak_move_ready_to_pendding_list(struct adlak_device *padlak);
+int adlak_invoke_del_all(struct adlak_device *padlak, int32_t net_id);
+int adlak_clear_sch_list(struct adlak_device *padlak);
+
 void adlak_queue_schedule_nolock(struct adlak_device *padlak);
 
 int adlak_invoke_pattching(struct adlak_task *ptask);
 int adlak_queue_update_task_state(struct adlak_device *padlak, struct adlak_task *ptask);
 
-int adlak_queue_schedule_update(struct adlak_device *padlak, struct adlak_task **ptask_sch_cur);
-#ifdef CONFIG_ADLAK_PRE_PATCH
-int adlak_submit_exec(struct adlak_task *ptask);
-#else
+int adlak_queue_schedule_update(struct adlak_device *padlak, struct adlak_task **ptask_sch_cur,
+                                int32_t match_net_id);
+
 int adlak_submit_patch_and_exec(struct adlak_task *ptask);
-#endif
+
 int adlak_wait_until_finished(struct adlak_context *context, struct adlak_get_stat_desc *stat_desc);
 
 #if CONFIG_ADLAK_EMU_EN

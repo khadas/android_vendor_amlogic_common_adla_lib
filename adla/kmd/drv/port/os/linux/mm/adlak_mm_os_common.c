@@ -600,9 +600,65 @@ void adlak_os_invalid_cache(struct adlak_mem *mm, struct adlak_mem_handle *mm_in
     }
 }
 
+void adlak_free_share_through_dma(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) {
+    if (mm_info->cpu_addr) {
+        mm->share_buf.ref_cnt--;
+        adlak_os_printf(
+            "%s: dma_addr= 0x%lX,  phys_addr= "
+            "0x%lX,ref_cnt=%lu\n",
+            __FUNCTION__, (uintptr_t)mm_info->dma_addr, (uintptr_t)mm_info->phys_addr,
+            (uintptr_t)(mm->share_buf.ref_cnt));
+        if (0 == mm->share_buf.ref_cnt) {
+            adlak_os_printf("dma_free_coherent: cpu_addr= 0x%lX\n", (uintptr_t)mm_info->cpu_addr);
+            dma_free_coherent(mm->dev, mm_info->req.bytes, mm_info->cpu_addr, mm_info->dma_addr);
+            mm->share_buf.share_buf_cpu_addr  = 0;
+            mm->share_buf.share_buf_dma_addr  = 0;
+            mm->share_buf.share_buf_phys_addr = 0;
+        }
+        mm_info->cpu_addr = NULL;
+    }
+}
+
+int adlak_malloc_share_through_dma(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) {
+    // uncacheable
+    if (!mm->share_buf.share_buf_cpu_addr) {
+        mm_info->req.bytes = (size_t)mm->share_buf.share_buf_size;
+        mm_info->cpu_addr  = dma_alloc_coherent(mm->dev, (size_t)mm_info->req.bytes,
+                                               &mm_info->dma_addr, GFP_USER | GFP_DMA | GFP_DMA32);
+        if (!mm_info->cpu_addr) {
+            AML_LOG_ERR("failed to dma_alloc %lu bytes\n", (uintptr_t)mm_info->req.bytes);
+            return ERR(ENOMEM);
+        }
+        mm_info->phys_addr = dma_to_phys(mm->dev, mm_info->dma_addr);
+
+        mm->share_buf.share_buf_cpu_addr  = mm_info->cpu_addr;
+        mm->share_buf.share_buf_dma_addr  = mm_info->dma_addr;
+        mm->share_buf.share_buf_phys_addr = mm_info->phys_addr;
+    }
+
+    mm_info->req.bytes = (size_t)mm->share_buf.share_buf_size;
+    mm_info->cpu_addr  = mm->share_buf.share_buf_cpu_addr;
+    mm_info->dma_addr  = mm->share_buf.share_buf_dma_addr;
+    mm_info->phys_addr = mm->share_buf.share_buf_phys_addr;
+
+    mm_info->mem_src  = ADLAK_ENUM_MEMSRC_CMA;
+    mm_info->mem_type = ADLAK_ENUM_MEMTYPE_INNER_SHARE |
+                        ADLAK_ENUM_MEMTYPE_INNER_CONTIGUOUS;  // uncacheable|contiguous
+    mm_info->iova_addr = mm_info->phys_addr;
+    mm->share_buf.ref_cnt++;
+    adlak_os_printf(
+        "%s: dma_addr= 0x%lX,  phys_addr= "
+        "0x%lX,size=%lu KByte, ref_cnt=%lu\n",
+        __FUNCTION__, (uintptr_t)mm_info->dma_addr, (uintptr_t)mm_info->phys_addr,
+        (uintptr_t)(mm_info->req.bytes / 1024), (uintptr_t)(mm->share_buf.ref_cnt));
+
+    return ERR(NONE);
+}
+
 void adlak_free_through_dma(struct adlak_mem *mm, struct adlak_mem_handle *mm_info) {
     if (mm_info->cpu_addr) {
         dma_free_coherent(mm->dev, mm_info->req.bytes, mm_info->cpu_addr, mm_info->dma_addr);
+        mm_info->cpu_addr = NULL;
     }
 }
 

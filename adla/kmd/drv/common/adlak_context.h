@@ -57,6 +57,9 @@ struct adlak_context {
     uint32_t             state;
     uint32_t             invoke_cnt;
 
+    uint32_t        smmu_tlb_updated;
+    adlak_os_sema_t invoke_state;
+
 #define CONTEXT_STATE_USED (1 << 2)
 #define CONTEXT_STATE_INITED (1 << 1)
 #define CONTEXT_STATE_CLOSED (1 << 0)

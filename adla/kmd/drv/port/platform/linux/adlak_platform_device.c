@@ -179,7 +179,6 @@ static int adlak_platform_remove(struct platform_device *pdev) {
     {
         AML_LOG_ERR("voltage uninit fail!\n");
     }
-
     adlak_platform_free_resource(padlak);
 
     if (misc_dev_en == true) {
@@ -263,19 +262,17 @@ static int adlak_platform_probe(struct platform_device *pdev) {
     return 0;
 err_create_dev:
 err_reg_fops:
+    adlak_device_deinit(padlak);
 err_dev_init:
     adlak_platform_free_resource(padlak);
 err_req_res:
-    adlak_device_deinit(padlak);
 err_get_res:
     adlak_os_free(padlak);
 err_alloc_data:
     return ret;
 }
 
-
-static int adlak_platform_sys_suspend(struct platform_device *pdev,pm_message_t state) {
-    int                  ret    = 0;
+static int adlak_platform_sys_suspend(struct platform_device *pdev, pm_message_t state) {
     struct adlak_device *padlak = platform_get_drvdata(pdev);
     AML_LOG_DEBUG("%s", __func__);
     adlak_platform_suspend(padlak);
@@ -285,7 +282,6 @@ static int adlak_platform_sys_suspend(struct platform_device *pdev,pm_message_t 
 }
 
 static int adlak_platform_sys_resume(struct platform_device *pdev) {
-    int                  ret    = 0;
     struct adlak_device *padlak = platform_get_drvdata(pdev);
     AML_LOG_DEBUG("%s", __func__);
     adlak_platform_resume(padlak);
@@ -294,25 +290,23 @@ static int adlak_platform_sys_resume(struct platform_device *pdev) {
     return 0;
 }
 
-static int adlak_platform_sys_pm_suspend(struct device *dev)
-{
-    pm_message_t state={0};
+static int adlak_platform_sys_pm_suspend(struct device *dev) {
+    pm_message_t state = {0};
     return adlak_platform_sys_suspend(to_platform_device(dev), state);
 }
 
-static int adlak_platform_sys_pm_resume(struct device *dev)
-{
+static int adlak_platform_sys_pm_resume(struct device *dev) {
     return adlak_platform_sys_resume(to_platform_device(dev));
 }
+
 static const struct dev_pm_ops viv_dev_pm_ops = {
-    SET_SYSTEM_SLEEP_PM_OPS(adlak_platform_sys_pm_suspend, adlak_platform_sys_pm_resume)
-};
+    SET_SYSTEM_SLEEP_PM_OPS(adlak_platform_sys_pm_suspend, adlak_platform_sys_pm_resume)};
 
 static struct platform_driver adlak_platform_driver = {
-    .probe  = adlak_platform_probe,
-    .remove = adlak_platform_remove,
+    .probe   = adlak_platform_probe,
+    .remove  = adlak_platform_remove,
     .suspend = adlak_platform_sys_suspend,
-    .resume = adlak_platform_sys_resume,
+    .resume  = adlak_platform_sys_resume,
     .driver =
         {
             .name  = DEVICE_NAME,
@@ -320,7 +314,7 @@ static struct platform_driver adlak_platform_driver = {
 #ifdef CONFIG_OF
             .of_match_table = of_match_ptr(adlak_child_pdev_match),
 #endif
-            .pm     = &viv_dev_pm_ops,
+            .pm = &viv_dev_pm_ops,
         },
 };
 

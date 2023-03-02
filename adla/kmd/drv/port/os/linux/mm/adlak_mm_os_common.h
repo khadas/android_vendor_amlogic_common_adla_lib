@@ -74,6 +74,11 @@ void adlak_os_unmmap_userspace(struct adlak_mem *mm, struct adlak_mem_handle *mm
 void adlak_free_cma_region_nocache(struct adlak_mem *mm);
 
 int adlak_alloc_cma_region_nocache(struct adlak_mem *mm);
+
+void adlak_free_share_through_dma(struct adlak_mem *mm, struct adlak_mem_handle *mm_info);
+
+int adlak_malloc_share_through_dma(struct adlak_mem *mm, struct adlak_mem_handle *mm_info);
+
 #ifdef __cplusplus
 }
 #endif

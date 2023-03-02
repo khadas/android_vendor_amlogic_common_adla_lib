@@ -385,16 +385,31 @@ typedef struct adlak_os_thread_inner {
     struct task_struct *kthread;
 } adlak_os_thread_inner_t;
 
-static int adlak_sched_priority = MAX_RT_PRIO / 4;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+static void inline signaler_set_rtpriority(adlak_os_thread_t *pthrd) {
+    adlak_os_thread_inner_t *pthread_inner = (adlak_os_thread_inner_t *)pthrd->handle;
+    /* Set maximum priority to preempt all other threads on this CPU. */
+    sched_set_fifo(pthread_inner->kthread);
+}
+
+#else
+static int adlak_sched_priority = MAX_RT_PRIO - 1;
 module_param_named(sched_priority, adlak_sched_priority, int, 0644);
 MODULE_PARM_DESC(sched_priority, "the adlak_sched_priority of kmd thread");
 
 static void signaler_set_rtpriority(adlak_os_thread_t *pthrd) {
     adlak_os_thread_inner_t *pthread_inner = (adlak_os_thread_inner_t *)pthrd->handle;
-    struct sched_param       param         = {.sched_priority = adlak_sched_priority};
+    struct sched_param param = {.sched_priority = adlak_sched_priority};
 
-    sched_setscheduler_nocheck(pthread_inner->kthread, SCHED_FIFO, &param);
+    if (0 != sched_setscheduler(pthread_inner->kthread, SCHED_RR, &param)) {
+        AML_LOG_WARN("set rtpriority of adlak_kthread_x failed!");
+    }
 }
+#endif
+
+static int adlak_kthread_cpuid = -1;
+module_param_named(kthread_cpuid, adlak_kthread_cpuid, int, 0644);
+MODULE_PARM_DESC(kthread_cpuid, "bind adlak_kthread the a \"housekeeping\" CPU");
 
 int adlak_os_thread_create(adlak_os_thread_t *pthrd, int(*func)(void *), void *arg) {
     static uint32_t          thread_num    = 0;
@@ -418,9 +433,16 @@ int adlak_os_thread_create(adlak_os_thread_t *pthrd, int(*func)(void *), void *a
     } else {
         pthrd->handle = (void *)pthread_inner;
         AML_LOG_DEBUG("thread create success!\n");
+
+        get_task_struct(pthread_inner->kthread);
+        if (-1 != adlak_kthread_cpuid) {
+            // To reduce OS jitter from non-per-CPU kthreads, bind kthread to a "housekeeping" CPU
+            kthread_bind(pthread_inner->kthread, adlak_kthread_cpuid);
+            AML_LOG_WARN("kthread bind on cpu%d\n", adlak_kthread_cpuid);
+        }
+
         wake_up_process(pthread_inner->kthread);
         thread_num++;
-        return ERR(NONE);
     }
     signaler_set_rtpriority(pthrd);
     return ERR(NONE);
@@ -434,12 +456,15 @@ int adlak_os_thread_detach(adlak_os_thread_t *pthrd) {
         ret = ERR(NONE);
         if (pthread_inner->kthread) {
             pthrd->thrd_should_stop = 1;
-            ret                     = kthread_stop(pthread_inner->kthread);
+
+            ret = kthread_stop(pthread_inner->kthread);
             if (ret) {
                 AML_LOG_ERR("pthread_detach fail!\n");
             } else {
                 AML_LOG_DEBUG("pthread_detach success!\n");
             }
+
+            put_task_struct(pthread_inner->kthread);
             while (pthrd->thrd_should_stop) {
                 adlak_os_msleep(10);
             }
@@ -460,7 +485,7 @@ typedef struct adlak_os_timer_inner {
     unsigned long     flags;
 } adlak_os_timer_inner_t;
 
-int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(struct timer_list *), void *param) {
+int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(struct timer_list  *), void *param) {
     adlak_os_timer_inner_t *ptimer_inner = NULL;
     PRINT_FUNC_NAME;
     ptimer_inner =
