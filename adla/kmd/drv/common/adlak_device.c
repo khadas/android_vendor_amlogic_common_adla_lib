@@ -173,7 +173,7 @@ int adlak_irq_proc(struct adlak_device *const padlak) {
         return -1;
     }
     phw_stat   = &ptask->hw_stat;
-    pinference = &padlak->queue.dev_infrence;
+    pinference = &padlak->queue.dev_inference;
 
     irqstatus                          = adlak_hal_get_irq_status(phw_stat);
     padlak->cmq_buf_info.cmq_rd_offset = phw_stat->ps_rbf_rpt;

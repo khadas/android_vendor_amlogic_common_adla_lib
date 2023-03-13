@@ -28,6 +28,10 @@
 #include "adlak_interrupt.h"
 #include "adlak_submit.h"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+#include <linux/amlogic/aml_board_info.h>
+#endif
+
 /************************** Constant Definitions *****************************/
 #ifndef CONFIG_OF
 
@@ -70,16 +74,34 @@ typedef enum {
     Regulator_None = 0,
     Regulator_GPIO,
     Regulator_PWM
-} regulator_type_t;
+} nn_regulator_type_t;
+
+typedef enum {
+    Adla_Hw_Ver_Default = 0,
+    Adla_Hw_Ver_r0p0,
+    Adla_Hw_Ver_r1p0,
+    Adla_Hw_Ver_r2p0,
+} nn_hw_version_t;
+
+typedef enum {
+    Adla_Efuse_Type_disable = 0,
+    Adla_Efuse_Type_SS = 1,
+    Adla_Efuse_Type_TT = 2,
+    Adla_Efuse_Type_FF = 3,
+} nn_efuse_type_t;
 
 /***************** Macros (Inline Functions) Definitions *********************/
 #define GPIO_REGULATOR_NAME      "vdd_npu"
 #define PWM_REGULATOR_NAME       "vddnpu"
 
 /************************** Variable Definitions *****************************/
-struct regulator            *regulator_nna;
+struct regulator            *nn_regulator;
+int                         nn_board_id;
 
 /************************** Function Prototypes ******************************/
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+extern unsigned int get_cpufreq_table_index(u64 function_id, u64 arg0, u64 arg1, u64 arg2);
+#endif
 
 #ifndef CONFIG_OF
 
@@ -219,38 +241,174 @@ static bool adlak_smmu_available(struct device *dev) {
     return has_smmu;
 }
 
-int adlak_voltage_init(void *data) {
-    int ret = 0;
-    struct adlak_device *padlak = (struct adlak_device *)data;
+static int adlak_voltage_adjust_r1p0(struct adlak_device *padlak) {
+    int ret = -1;
 
-    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_None) {
+    switch ((nn_regulator_type_t)padlak->nn_regulator_type) {
+    case Regulator_GPIO:
+        nn_regulator = devm_regulator_get(padlak->dev, GPIO_REGULATOR_NAME);
+        AML_LOG_INFO("ADLA KMD nna regulator by gpio.\n");
+        printk("ADLA KMD nna regulator by gpio.\n");
+        break;
+    case Regulator_PWM:
+        nn_regulator = devm_regulator_get(padlak->dev, PWM_REGULATOR_NAME);
+        AML_LOG_INFO("ADLA KMD nna regulator by pwm.\n");
+        printk("ADLA KMD nna regulator by pwm.\n");
+        break;
+    case Regulator_None:
+        nn_regulator = NULL;
+        ret = 0;
         AML_LOG_INFO("ADLA KMD voltage regulator disable\n");
+        printk("ADLA KMD nna regulator disable.\n");
+        break;
+    }
+
+    if (!ret) {
         return ret;
     }
-    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_GPIO) {
-        regulator_nna = devm_regulator_get(padlak->dev, GPIO_REGULATOR_NAME);
-    }
-    else if ((regulator_type_t)padlak->regulator_nn_type == Regulator_PWM) {
-        regulator_nna = devm_regulator_get(padlak->dev, PWM_REGULATOR_NAME);
-    }
-    if (IS_ERR(regulator_nna)) {
+
+    if (IS_ERR(nn_regulator)) {
+        ret = -1;
+        nn_regulator = NULL;
         AML_LOG_ERR("regulator_get vddnpu fail!\n");
+        return ret;
     }
 
-    ret = regulator_enable(regulator_nna);
+    ret = regulator_enable(nn_regulator);
     if (ret < 0)
     {
         AML_LOG_ERR("regulator_enable error\n");
-    }
-    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_PWM) {
-        ret = regulator_set_voltage(regulator_nna, 900000, 900000);
-        if (ret < 0)
-            AML_LOG_ERR("regulator_set_voltage %d Error\n",900000);
-        else
-            AML_LOG_INFO("regulator_set_voltage %d OK\n", 900000);
+        devm_regulator_put(nn_regulator);
+        nn_regulator = NULL;
+        return ret;
     }
 
-    AML_LOG_INFO("ADLA KMD voltage init success ");
+    if ((nn_regulator_type_t)padlak->nn_regulator_type == Regulator_PWM) {
+        ret = regulator_set_voltage(nn_regulator, 900000, 900000);
+        if (ret < 0) {
+            regulator_disable(nn_regulator);
+            devm_regulator_put(nn_regulator);
+            nn_regulator = NULL;
+            AML_LOG_ERR("regulator_set_voltage %d Error\n",900000);
+        }
+        else {
+            AML_LOG_INFO("regulator_set_voltage %d OK\n", 900000);
+        }
+    }
+    return ret;
+}
+
+static int adlak_voltage_adjust_r2p0(struct adlak_device *padlak) {
+/*****************************************************************************
+ * pwm              0%    %5    %10   15%   20%   25%   30%   35%   40%   45%
+ * board v1 vol(v)  0.89  0.88  0.87  0.86  0.85  0.84  0.83  0.82  0.81  0.80
+ * board v2 vol(v)  0.93  0.92  0.91  0.90  0.89  0.88  0.87  0.86  0.85  0.84
+ * reg value
+ *****************************************************************************/
+/*****************************************************************************
+ * pwm              50%   55%   60%   65%   70%   75%   80%   85%   90%   95%
+ * board v1 vol(v)  0.79  0.78  0.77  0.76  0.75  0.74  0.73  0.72  0.71  0.70
+ * board v2 vol(v)  0.83  0.82  0.81  0.80  0.79  0.78  0.77  0.76  0.75  0.74
+ * reg value
+ *****************************************************************************/
+#define NN_T7C_BOARD_V1_ID         1
+#define NN_T7C_BOARD_V2_ID         2
+#define NN_T7C_BOARD_V1_890MV      890000
+#define NN_T7C_BOARD_V2_910MV      870000
+#define NN_T7C_BOARD_V2_870MV      830000
+#define NN_T7C_BOARD_V2_850MV      810000
+#define NN_EFUSE_TYPE_NPU          2
+#define NN_GET_DVFS_TABLE_INDEX    0x82000088
+    int ret = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+    unsigned int nn_efuse_type = 0;
+    int nn_voltage_value = 0;
+
+    nn_board_id = aml_board_info_id_read();
+    printk("ADLA KMD nn_board_id = %d\n", nn_board_id);
+
+    nn_regulator = devm_regulator_get(padlak->dev, PWM_REGULATOR_NAME);
+    if (IS_ERR(nn_regulator)) {
+        ret = -1;
+        nn_regulator = NULL;
+        AML_LOG_ERR("regulator_get vddnpu fail!\n");
+        return ret;
+    }
+
+    ret = regulator_enable(nn_regulator);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_enable error\n");
+        devm_regulator_put(nn_regulator);
+        nn_regulator = NULL;
+        return ret;
+    }
+
+    /* nn_board_id == 1 board version is v1(old legacy board) */
+    if (nn_board_id == 1) {
+        nn_voltage_value = NN_T7C_BOARD_V1_890MV;
+    }
+    /* nn_board_id == 2 board version is v2 (new type board)*/
+    else if (nn_board_id == 2) {
+        nn_efuse_type = get_cpufreq_table_index(NN_GET_DVFS_TABLE_INDEX, NN_EFUSE_TYPE_NPU, 0, 0);
+        printk("ADLA KMD nn_efuse_type = %u\n", nn_efuse_type);
+        switch ((nn_efuse_type_t)nn_efuse_type) {
+        case Adla_Efuse_Type_SS:
+            nn_voltage_value = NN_T7C_BOARD_V2_910MV;
+            break;
+        case Adla_Efuse_Type_TT:
+            nn_voltage_value = NN_T7C_BOARD_V2_870MV;
+            break;
+        case Adla_Efuse_Type_FF:
+            nn_voltage_value = NN_T7C_BOARD_V2_850MV;
+            break;
+        default:
+            ret = -1;
+            nn_voltage_value = 0;
+            AML_LOG_ERR("ADLA KMD unknown nn_efuse_type %u\n", nn_efuse_type);
+            break;
+        }
+    }
+    if (nn_voltage_value) {
+        ret = regulator_set_voltage(nn_regulator, nn_voltage_value, nn_voltage_value);
+    }
+    if (ret < 0) {
+        regulator_disable(nn_regulator);
+        devm_regulator_put(nn_regulator);
+        nn_regulator = NULL;
+        AML_LOG_ERR("regulator_set_voltage %dmv Error\n", nn_voltage_value);
+    }
+    else {
+        AML_LOG_INFO("regulator_set_voltage %dmv OK\n", nn_voltage_value);
+    }
+#endif
+
+    return ret;
+}
+
+static int adlak_voltage_adjust_default(struct adlak_device *padlak) {
+    nn_regulator = NULL;
+    return 0;
+}
+
+int adlak_voltage_init(void *data) {
+    int ret = 0;
+    struct adlak_device *padlak = (struct adlak_device *)data;
+    switch ((nn_regulator_type_t)padlak->nn_dts_hw_ver) {
+    case Adla_Hw_Ver_r2p0:
+        ret = adlak_voltage_adjust_r2p0(padlak);
+        break;
+    case Adla_Hw_Ver_r1p0:
+        ret = adlak_voltage_adjust_r1p0(padlak);
+        break;
+    case Adla_Hw_Ver_r0p0:
+    case Adla_Hw_Ver_Default:
+        ret = adlak_voltage_adjust_default(padlak);
+        break;
+    }
+
+    if (!ret )
+        AML_LOG_INFO("ADLA KMD voltage init success ");
 
     return ret;
 }
@@ -259,42 +417,55 @@ int adlak_voltage_uninit(void *data) {
     int ret = 0;
     struct adlak_device *padlak = (struct adlak_device *)data;
 
-    if ((regulator_type_t)padlak->regulator_nn_type == Regulator_None) {
-        AML_LOG_INFO("ADLA KMD voltage regulator disable\n");
-        return ret;
-    }
-
-    if (regulator_nna == NULL)
+    if (nn_regulator)
     {
-        AML_LOG_ERR("regulator supply is NULL\n");
-        return -1;
-    }
-    ret = regulator_disable(regulator_nna);
-    if (ret < 0)
-    {
-        AML_LOG_ERR("regulator_disable error\n");
+        ret = regulator_disable(nn_regulator);
+        if (ret < 0)
+        {
+            AML_LOG_ERR("regulator_disable error\n");
+        }
+
+        devm_regulator_put(nn_regulator);
     }
 
-    devm_regulator_put(regulator_nna);
+    if (!ret)
+        AML_LOG_INFO("ADLA KMD voltage uninit success ");
 
-    AML_LOG_INFO("ADLA KMD voltage uninit success ");
     return ret;
 }
 
-static regulator_type_t adlak_regulator_nn_available(struct device *dev) {
+static nn_regulator_type_t adlak_regulator_nn_available(struct device *dev) {
 #ifdef CONFIG_OF
     const char * regulator_name = NULL;
-    if (of_property_read_string(dev->of_node, "regulator_nn", &regulator_name)) {
+    if (of_property_read_string(dev->of_node, "nn_regulator", &regulator_name)) {
         return Regulator_None;
     }
     if (!strcmp(regulator_name, "gpio_regulator")) {
-       return Regulator_GPIO;
+        return Regulator_GPIO;
     }
     if (!strcmp(regulator_name, "pwm_regulator")) {
-       return Regulator_PWM;
+        return Regulator_PWM;
     }
 #endif
     return Regulator_None;
+}
+static nn_hw_version_t adlak_get_nn_hw_version(struct device *dev) {
+#ifdef CONFIG_OF
+    const char * adla_hw_ver_name = NULL;
+    if (of_property_read_string(dev->of_node, "nn_hw_version", &adla_hw_ver_name)) {
+        return Adla_Hw_Ver_Default;
+    }
+    if (!strcmp(adla_hw_ver_name, "r2p0")) {
+        return Adla_Hw_Ver_r2p0;
+    }
+    if (!strcmp(adla_hw_ver_name, "r1p0")) {
+        return Adla_Hw_Ver_r1p0;
+    }
+    if (!strcmp(adla_hw_ver_name, "r0p0")) {
+        return Adla_Hw_Ver_r0p0;
+    }
+#endif
+    return Adla_Hw_Ver_Default;
 }
 int adlak_platform_get_resource(void *data) {
     int                  ret    = 0;
@@ -311,25 +482,8 @@ int adlak_platform_get_resource(void *data) {
         AML_LOG_INFO("smmu not available.\n");
     }
 
-    padlak->regulator_nn_type = (int)adlak_regulator_nn_available(padlak->dev);
-    switch ((regulator_type_t)padlak->regulator_nn_type)
-    {
-    case Regulator_None:
-        AML_LOG_INFO("regulator nna disable.\n");
-        printk("regulator nna disable.\n");
-        break;
-    case Regulator_GPIO:
-        AML_LOG_INFO("regulator nna by gpio.\n");
-        printk("regulator nna by gpio.\n");
-        break;
-    case Regulator_PWM:
-        AML_LOG_INFO("regulator nna by pwm.\n");
-        printk("regulator nna by pwm.\n");
-        break;
-    default:
-        AML_LOG_ERR("regulator nna type %d invalid.\n", padlak->regulator_nn_type);
-        break;
-    }
+    padlak->nn_dts_hw_ver = (int)adlak_get_nn_hw_version(padlak->dev);
+    padlak->nn_regulator_type = (int)adlak_regulator_nn_available(padlak->dev);
 
     /* get ADLAK IO */
 

@@ -124,7 +124,8 @@ struct adlak_device {
     int             dpm_en;
     int             dpm_period_set;
     void            *pdpm;  // dynamic power management
-    int             regulator_nn_type;
+    int             nn_regulator_type;
+    int             nn_dts_hw_ver;
     uint32_t        nn_voltage;
 };
 

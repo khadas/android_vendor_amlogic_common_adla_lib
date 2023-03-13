@@ -1402,7 +1402,7 @@ int adlak_invoke_request(struct adlak_context *            context,
 #ifdef CONFIG_ADLAK_DEBUG_INNNER
     adlak_dbg_inner_update(context, "invoke_request done");
 #endif
-    pwq->dev_infrence.dmp_timeout = 0;
+    pwq->dev_inference.dmp_timeout = 0;
     adlak_os_sema_give(pwq->wk_update);
     adlak_os_thread_yield();
 

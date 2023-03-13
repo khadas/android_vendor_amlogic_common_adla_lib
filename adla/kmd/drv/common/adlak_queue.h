@@ -75,7 +75,7 @@ struct adlak_workqueue {
     struct adlak_global_id id_backup;  // for rollback
     struct adlak_global_id id_cur;     // for rollback
 
-    struct adlak_dev_inference dev_infrence;
+    struct adlak_dev_inference dev_inference;
 };
 /************************** Function Prototypes ******************************/
 
