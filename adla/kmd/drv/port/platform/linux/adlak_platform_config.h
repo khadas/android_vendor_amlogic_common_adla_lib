@@ -22,6 +22,8 @@
 #define __ADLAK_PLATFORM_CONFIG_H__
 
 /***************************** Include Files *********************************/
+#include <linux/module.h>
+#include <linux/amlogic/gki_module.h>
 #include "adlak_typedef.h"
 #ifdef __cplusplus
 extern "C" {

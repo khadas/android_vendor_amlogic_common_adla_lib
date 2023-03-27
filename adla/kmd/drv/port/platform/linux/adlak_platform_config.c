@@ -28,9 +28,8 @@
 #include "adlak_interrupt.h"
 #include "adlak_submit.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
-#include <linux/amlogic/aml_board_info.h>
-#endif
+#include <linux/arm-smccc.h>
+#include <linux/amlogic/media/registers/cpu_version.h>
 
 /************************** Constant Definitions *****************************/
 #ifndef CONFIG_OF
@@ -101,11 +100,9 @@ typedef enum {
 extern uint32_t g_adlak_emu_dev_cmq_total_size;
 #endif
 struct regulator            *nn_regulator;
+int                         nn_regulator_flag;
 int                         nn_board_id;
 /************************** Function Prototypes ******************************/
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
-extern unsigned int get_cpufreq_table_index(u64 function_id, u64 arg0, u64 arg1, u64 arg2);
-#endif
 
 #ifndef CONFIG_OF
 
@@ -245,6 +242,18 @@ static bool adlak_smmu_available(struct device *dev) {
     return has_smmu;
 }
 
+static unsigned int adlak_get_nn_efuse_chip_type(u64 function_id, u64 arg0, u64 arg1, u64 arg2)
+{
+    struct arm_smccc_res res;
+
+    arm_smccc_smc((unsigned long)function_id,
+              (unsigned long)arg0,
+              (unsigned long)arg1,
+              (unsigned long)arg2,
+              0, 0, 0, 0, &res);
+    return res.a0;
+}
+
 static int adlak_voltage_adjust_r1p0(struct adlak_device *padlak) {
     int ret = -1;
 
@@ -302,6 +311,17 @@ static int adlak_voltage_adjust_r1p0(struct adlak_device *padlak) {
     return ret;
 }
 
+static int adlak_get_board_adj_vol_env(char *str)
+{
+    int ret;
+    ret = kstrtouint(str, 10, &nn_regulator_flag);
+    if (ret) {
+        return -EINVAL;
+    }
+    return 0;
+}
+__setup("nn_adj_vol=", adlak_get_board_adj_vol_env);
+
 static int adlak_voltage_adjust_r2p0(struct adlak_device *padlak) {
 /*****************************************************************************
  * pwm              0%    %5    %10   15%   20%   25%   30%   35%   40%   45%
@@ -318,18 +338,26 @@ static int adlak_voltage_adjust_r2p0(struct adlak_device *padlak) {
 #define NN_T7C_BOARD_V1_ID         1
 #define NN_T7C_BOARD_V2_ID         2
 #define NN_T7C_BOARD_V1_890MV      890000
+#define NN_T7C_BOARD_V1_870MV      870000
 #define NN_T7C_BOARD_V2_910MV      870000
+#define NN_T7C_BOARD_V2_890MV      850000
 #define NN_T7C_BOARD_V2_870MV      830000
 #define NN_T7C_BOARD_V2_850MV      810000
 #define NN_EFUSE_TYPE_NPU          2
 #define NN_GET_DVFS_TABLE_INDEX    0x82000088
-    int ret = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+#define NN_MESON_CPU_VERSION_LVL_PACK 2
+#define NN_T7C_PACKAGE_TYPE_A311D2 1
+#define NN_T7C_PACKAGE_TYPE_POP1   2
+#define NN_T7C_PACKAGE_TYPE_V918D  3
+#define NN_T7C_PACKAGE_TYPE_A311D2J 4
+    int          ret = 0;
+    int          nn_voltage_value = 0;
+    unsigned int nn_package_id;
     unsigned int nn_efuse_type = 0;
-    int nn_voltage_value = 0;
 
-    nn_board_id = aml_board_info_id_read();
-    printk("ADLA KMD nn_board_id = %d\n", nn_board_id);
+    nn_package_id = get_meson_cpu_version(NN_MESON_CPU_VERSION_LVL_PACK);
+    nn_efuse_type = adlak_get_nn_efuse_chip_type(NN_GET_DVFS_TABLE_INDEX, NN_EFUSE_TYPE_NPU, 0, 0);
+    printk("ADLA KMD nn_adj_vol = %d, nn_package_id = %u, nn_efuse_type = %u\n", nn_regulator_flag, nn_package_id, nn_efuse_type);
 
     nn_regulator = devm_regulator_get(padlak->dev, PWM_REGULATOR_NAME);
     if (IS_ERR(nn_regulator)) {
@@ -348,29 +376,36 @@ static int adlak_voltage_adjust_r2p0(struct adlak_device *padlak) {
         return ret;
     }
 
-    /* nn_board_id == 1 board version is v1(old legacy board) */
-    if (nn_board_id == 1) {
-        nn_voltage_value = NN_T7C_BOARD_V1_890MV;
+    /* nn_regulator_flag == 0 board version is v1(old legacy board) */
+    if (!nn_regulator_flag) {
+        if (nn_package_id == NN_T7C_PACKAGE_TYPE_A311D2J) {
+            nn_voltage_value = NN_T7C_BOARD_V1_870MV;
+        }
+        else {
+            nn_voltage_value = NN_T7C_BOARD_V1_890MV;
+        }
     }
-    /* nn_board_id == 2 board version is v2 (new type board)*/
-    else if (nn_board_id == 2) {
-        nn_efuse_type = get_cpufreq_table_index(NN_GET_DVFS_TABLE_INDEX, NN_EFUSE_TYPE_NPU, 0, 0);
-        printk("ADLA KMD nn_efuse_type = %u\n", nn_efuse_type);
-        switch ((nn_efuse_type_t)nn_efuse_type) {
-        case Adla_Efuse_Type_SS:
-            nn_voltage_value = NN_T7C_BOARD_V2_910MV;
-            break;
-        case Adla_Efuse_Type_TT:
+    /* nn_regulator_flag == 1 board version is v2 or other customer ver (new type board)*/
+    else {
+        if (nn_package_id == NN_T7C_PACKAGE_TYPE_A311D2J) {
             nn_voltage_value = NN_T7C_BOARD_V2_870MV;
-            break;
-        case Adla_Efuse_Type_FF:
-            nn_voltage_value = NN_T7C_BOARD_V2_850MV;
-            break;
-        default:
-            ret = -1;
-            nn_voltage_value = 0;
-            AML_LOG_ERR("ADLA KMD unknown nn_efuse_type %u\n", nn_efuse_type);
-            break;
+        }
+        else {
+            switch ((nn_efuse_type_t)nn_efuse_type) {
+            case Adla_Efuse_Type_SS:
+                nn_voltage_value = NN_T7C_BOARD_V2_910MV;
+                break;
+            case Adla_Efuse_Type_TT:
+                nn_voltage_value = NN_T7C_BOARD_V2_870MV;
+                break;
+            case Adla_Efuse_Type_FF:
+                nn_voltage_value = NN_T7C_BOARD_V2_850MV;
+                break;
+            default:
+                /* if no efuse id, PDVFS is disable, we set default voltage to 890mv*/
+                nn_voltage_value = NN_T7C_BOARD_V2_890MV;
+                break;
+            }
         }
     }
     if (nn_voltage_value) {
@@ -385,7 +420,6 @@ static int adlak_voltage_adjust_r2p0(struct adlak_device *padlak) {
     else {
         AML_LOG_INFO("regulator_set_voltage %dmv OK\n", nn_voltage_value);
     }
-#endif
 
     return ret;
 }
