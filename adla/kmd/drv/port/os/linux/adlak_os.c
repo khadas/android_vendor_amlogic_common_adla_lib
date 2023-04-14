@@ -407,7 +407,7 @@ static void signaler_set_rtpriority(adlak_os_thread_t *pthrd) {
 }
 #endif
 
-static int adlak_kthread_cpuid = -1;
+int adlak_kthread_cpuid = -1;
 module_param_named(kthread_cpuid, adlak_kthread_cpuid, int, 0644);
 MODULE_PARM_DESC(kthread_cpuid, "bind adlak_kthread the a \"housekeeping\" CPU");
 
