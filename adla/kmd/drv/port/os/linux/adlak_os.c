@@ -185,7 +185,7 @@ char *adlak_os_asprintf(gfp_t gfp, const char *fmt, ...) {
     return p;
 }
 
-void adlak_os_msleep(unsigned int ms) { msleep(ms); }
+void adlak_os_msleep(unsigned int ms) { mdelay(ms); }
 
 typedef struct adlak_os_mutex_inner {
     struct mutex mutex_hd;
