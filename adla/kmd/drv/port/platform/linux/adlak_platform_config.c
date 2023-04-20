@@ -525,10 +525,8 @@ int adlak_platform_get_resource(void *data) {
     padlak->nn_dts_hw_ver = (int)adlak_get_nn_hw_version(padlak->dev);
     padlak->nn_regulator_type = (int)adlak_regulator_nn_available(padlak->dev);
 
-    /* t7c & s5 bind kthread to cpu1 */
-    if (padlak->nn_dts_hw_ver == Adla_Hw_Ver_r2p0 || padlak->nn_dts_hw_ver == Adla_Hw_Ver_r1p0) {
-        adlak_kthread_cpuid = 1;
-    }
+    /* bind kthread to cpu1 */
+    adlak_kthread_cpuid = 1;
 
     /* get ADLAK IO */
 
