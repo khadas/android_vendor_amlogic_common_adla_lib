@@ -140,7 +140,6 @@ int adlak_device_deinit(struct adlak_device *padlak) {
     adlak_dev_inference_deinit(padlak); /*the inference thread will internally call the dev_mutex*/
     adlak_os_mutex_lock(&padlak->dev_mutex);
     adlak_hw_deinit(padlak);
-    adlak_dpm_deinit(padlak);
     adlak_irq_deinit(padlak);
     adlak_queue_deinit(padlak);
     adlak_os_mutex_unlock(&padlak->dev_mutex);
@@ -148,6 +147,7 @@ int adlak_device_deinit(struct adlak_device *padlak) {
     adlak_os_mutex_lock(&padlak->dev_mutex);
     adlak_mem_deinit(padlak);
     adlak_platform_pm_deinit(padlak);
+    adlak_dpm_deinit(padlak);
     adlak_os_mutex_unlock(&padlak->dev_mutex);
 
     return 0;
