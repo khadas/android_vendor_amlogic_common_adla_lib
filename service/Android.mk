@@ -43,7 +43,8 @@ LOCAL_SHARED_LIBRARIES := \
 		libnativewindow \
 		libui \
 		libc++ \
-		libc
+		libc  \
+		libtextclassifier_hash
 
 LOCAL_PREBUILT_MODULE_FILE   := $(SERVICE_PATH)/android.hardware.neuralnetworks@1.3-service-aml-driver
 LOCAL_MODULE_CLASS := EXECUTABLES
