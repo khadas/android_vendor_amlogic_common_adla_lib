@@ -157,7 +157,7 @@ int adlak_dev_inference_cb(void *args) {
                               NULL);
     if (ret) {
         AML_LOG_ERR("dpm_timer init fail!\n");
-        return NULL;
+        return 0;
     }
     pwq->dev_inference.dmp_timeout = 0;
 

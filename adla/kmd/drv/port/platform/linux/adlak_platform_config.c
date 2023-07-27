@@ -434,7 +434,7 @@ int adlak_voltage_init(void *data) {
     int ret = 0;
     struct adlak_device *padlak = (struct adlak_device *)data;
 
-    switch ((nn_regulator_type_t)padlak->nn_dts_hw_ver) {
+    switch ((nn_hw_version_t)padlak->nn_dts_hw_ver) {
     case Adla_Hw_Ver_r2p0:
         ret = adlak_voltage_adjust_r2p0(padlak);
         break;
@@ -455,7 +455,6 @@ int adlak_voltage_init(void *data) {
 
 int adlak_voltage_uninit(void *data) {
     int ret = 0;
-    struct adlak_device *padlak = (struct adlak_device *)data;
 
     if (nn_regulator)
     {
