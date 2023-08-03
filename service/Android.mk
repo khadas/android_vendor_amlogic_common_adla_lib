@@ -44,7 +44,8 @@ LOCAL_SHARED_LIBRARIES := \
 		libui \
 		libc++ \
 		libc  \
-		libtextclassifier_hash
+		libtextclassifier_hash \
+		libsync
 
 LOCAL_PREBUILT_MODULE_FILE   := $(SERVICE_PATH)/android.hardware.neuralnetworks@1.3-service-aml-driver
 LOCAL_MODULE_CLASS := EXECUTABLES
